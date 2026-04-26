@@ -95,7 +95,7 @@ Examples:
 
 input_text = st.text_area(
     "Paste HGVS variant (c. and p.):",
-    value="c.994A>G p.Trp343Alafs*39",
+    value="c.467C>A p.Ser156*",
     height=100,
 )
 
