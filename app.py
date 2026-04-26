@@ -6,6 +6,12 @@ import random
 import sys
 from pathlib import Path
 
+# === Configure page layout (full width) ==================================================
+st.set_page_config(
+    page_title="NMD Predictor v1.0",
+    layout="wide",
+)
+
 # Add current directory to path (helps on Streamlit Cloud / some environments)
 sys.path.append(str(Path(__file__).parent))
 
