@@ -3,15 +3,76 @@ import re
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
+import sys
+from pathlib import Path
 
-# Import data from separate file
+# Add current directory to path (helps on Streamlit Cloud / some environments)
+sys.path.append(str(Path(__file__).parent))
+
+# Import data from data.py
 from data import TRANSCRIPTS, PROTEIN_DOMAINS, EXONS, EDUCATIONAL_FACTS
 
-# === Configure page layout (full width) ==================================================
-st.set_page_config(
-    page_title="NMD Predictor v1.0",
-    layout="wide",
-)
+# === Helper Functions ================================================================
+def get_params(gene_tx_key):
+    tx, nmd_cut, mrna_len, prot_len = TRANSCRIPTS[gene_tx_key]
+    return {
+        "gene_tx_key": gene_tx_key,
+        "gene": gene_tx_key.split("_")[0],
+        "transcript": tx,
+        "nmd_cutoff_cdna": nmd_cut,
+        "reference_mrna_len": mrna_len,
+        "protein_length_aa": prot_len,
+    }
+
+def get_domains(gene_tx_key):
+    return PROTEIN_DOMAINS.get(gene_tx_key, [])
+
+def get_exons(gene_tx_key):
+    return EXONS.get(gene_tx_key, [])
+
+# === HGVS PARSING ========================================================================
+def extract_c_pos_from_c_hgvs(hgvs_c):
+    m = re.search(r"c\.(\d+)", hgvs_c)
+    if m:
+        return int(m.group(1))
+    return None
+
+def parse_p_ptc_position(hgvs_p):
+    hgvs_p = hgvs_p.strip()
+    m = re.search(r"p\.[A-Z][a-z]{2}(\d+)(?:\*|Ter)", hgvs_p, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
+    m = re.search(
+        r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
+        hgvs_p,
+        re.IGNORECASE
+    )
+    if m:
+        aa_start = int(m.group(1))
+        n_aa_new = int(m.group(3))
+        return aa_start + n_aa_new - 1
+    return None
+
+def hgvs_to_ptc_c_pos(hgvs_str):
+    hgvs_str = hgvs_str.strip()
+    if not hgvs_str:
+        return None, "Empty string"
+    c_match = re.search(r"c\.\d+.*", hgvs_str, re.IGNORECASE)
+    if not c_match:
+        return None, "No c. part found"
+    c_str = c_match.group()
+    c_start = extract_c_pos_from_c_hgvs(c_str)
+    if c_start is None:
+        return None, "Failed to parse c. position"
+    p_match = re.search(r"p\.[^ ]*", hgvs_str, re.IGNORECASE)
+    if not p_match:
+        return None, "No p. part found"
+    p_str = p_match.group()
+    ptc_codon = parse_p_ptc_position(p_str)
+    if ptc_codon is None:
+        return None, "Failed to parse p. frameshift/stop"
+    ptc_c_pos = 3 * ptc_codon
+    return ptc_c_pos, None
 
 # === STREAMLIT LAYOUT ====================================================================
 st.markdown("<h1>NMD Predictor v1.0</h1>", unsafe_allow_html=True)
@@ -28,7 +89,7 @@ with tab_input:
     This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
     """, unsafe_allow_html=True)
 
-    # Alphabetical sorting of genes in dropdown
+    # Alphabetical sorting
     sorted_genes = sorted(TRANSCRIPTS.keys())
 
     gene_tx_key = st.selectbox(
@@ -43,7 +104,7 @@ with tab_input:
     if not gene_tx_key:
         st.info("⚠️ Please select a gene and transcript to continue.")
     else:
-        current = get_params(gene_tx_key)   # We'll define this below
+        current = get_params(gene_tx_key)
 
         st.markdown(f"""
         You are currently using:
@@ -101,7 +162,7 @@ with tab_input:
                     if m_p:
                         frameshift_start_codon = int(m_p.group(1))
 
-                # === CORE LOGIC WITH YOUR ORIGINAL CAVEATS ===
+                # Core Logic with your original caveats
                 if ptc_c_pos <= current["nmd_cutoff_cdna"]:
                     nmd = "YES"
                     nmd_label = "NMD predicted"
@@ -162,7 +223,7 @@ with tab_input:
 
                 st.markdown(extra, unsafe_allow_html=True)
 
-                # Report data
+                # Report data collection
                 assessment = "Possible driver"
                 mechanism = "Fits mechanism and spectrum of variants"
                 if "DRIVER" in extra:
