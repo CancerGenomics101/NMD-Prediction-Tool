@@ -142,7 +142,7 @@ with tab_input:
    gene_tx_key = st.selectbox(
     "Select gene and transcript:",
     options=list(TRANSCRIPTS.keys()),
-    format_func=lambda x: x.replace("_", " / "),
+    format_func=lambda x: x.split("_", 1)[0] + " / " + x.split("_", 1)[1],
     key="gene_tx_key",
 )
 
