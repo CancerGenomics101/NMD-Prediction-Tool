@@ -54,7 +54,7 @@ def parse_p_ptc_position(hgvs_p):
     Given p. text, return the PTC codon number.
     Supports:
       - p.Ser156* / p.Ser156Ter
-      - p.Arg78fs*50, p.Trp343Alafs*39, etc.
+      - p.Trp343Alafs*39, p.Trp343fs*39, p.Arg78fs*50, etc.
     """
     hgvs_p = hgvs_p.strip()
 
@@ -64,15 +64,15 @@ def parse_p_ptc_position(hgvs_p):
         aa_stop = int(m.group(1))
         return aa_stop
 
-    # Case 2: frameshift (p.Arg78fs*50, p.Trp343fs*39)
+    # Case 2: frameshift (p.Trp343Alafs*39, p.Trp343fs*39, p.Arg78fs*50, etc.)
     m = re.search(
-        r"p\.[A-Z][a-z]{2}?(\d+)fs(?:Ter|\*)?(\d+)",
+        r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
         hgvs_p,
         re.IGNORECASE
     )
     if m:
         aa_start = int(m.group(1))
-        n_aa_new = int(m.group(2))
+        n_aa_new = int(m.group(3))  # the *39 or *60 number
         ptc_codon = aa_start + n_aa_new - 1
         return ptc_codon
 
@@ -113,7 +113,8 @@ def hgvs_to_ptc_c_pos(hgvs_str):
 
 # === STREAMLIT LAYOUT ====================================================================
 
-st.title("NMD Predictor (HGVS input, GRCh37)")
+st.markdown("<h1>NMD Predictor V1.0</h1>", unsafe_allow_html=True)
+st.markdown("<p style='font-size:14px; color:#666;'>(HGVS input, GRCh37)</p>", unsafe_allow_html=True)
 
 gene_tx_key = st.selectbox(
     "Select gene and transcript:",
@@ -174,7 +175,7 @@ else:
         frameshift_start_codon = None
         if "fs" in line:
             m_p = re.search(
-                r"p\.[A-Z][a-z]{2}?(\d+)fs(?:Ter|\*)?(\d+)",
+                r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
                 line,
                 re.IGNORECASE
             )
