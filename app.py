@@ -419,3 +419,37 @@ if INPUT_DATA:
         )
 
     # Top arrow: frameshift start
+    if fs_c_pos is not None:
+        ax.annotate(
+            f" ⬅ frameshift",
+            xy=(fs_c_pos, 1.3),
+            xytext=(fs_c_pos, 2.2),
+            arrowprops=dict(
+                arrowstyle="->",
+                color="black",
+                lw=1.5
+            ),
+            fontsize=10,
+            ha="center"
+        )
+
+    # Bottom arrow: PTC or 3′ UTR stop
+    arrow_y = -1.3
+    txt = "PTC codon"
+    if ptc_c_pos > cds_end:
+        txt = "3′ UTR stop codon"
+    ax.annotate(
+        txt,
+        xy=(ptc_c_pos, arrow_y),
+        xytext=(ptc_c_pos, -2.5),
+        arrowprops=dict(
+            arrowstyle="->",
+            color="black",
+            lw=1.5
+        ),
+        fontsize=10,
+        ha="center"
+    )
+
+    # Finally, show the figure in Streamlit
+    st.pyplot(fig, use_container_width=True)
