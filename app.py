@@ -52,7 +52,8 @@ def extract_c_pos_from_c_hgvs(hgvs_c):
       - c.234_235insA
       - c.234_235dup
     """
-    m = re.search(r"c\.(\\d+)", hgvs_c)
+    # Correct regex: single backslash, not double
+    m = re.search(r"c\.(\d+)", hgvs_c)
     if m:
         return int(m.group(1))
     return None
@@ -68,14 +69,14 @@ def parse_p_ptc_position(hgvs_p):
     hgvs_p = hgvs_p.strip()
 
     # Case 1: simple nonsense (p.Ser156* or p.Ser156Ter)
-    m = re.search(r"p\.[A-Z][a-z]{2}(\\d+)(?:\*|Ter)", hgvs_p, re.IGNORECASE)
+    m = re.search(r"p\.[A-Z][a-z]{2}(\d+)(?:\*|Ter)", hgvs_p, re.IGNORECASE)
     if m:
         aa_stop = int(m.group(1))
         return aa_stop
 
     # Case 2: frameshift (p.Trp343Alafs*39, p.Trp343fs*39, p.Arg78fs*50, etc.)
     m = re.search(
-        r"p\.[A-Z][a-z]{2}?(\\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\\d+)",
+        r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
         hgvs_p,
         re.IGNORECASE
     )
@@ -206,7 +207,7 @@ with tab_input:
             frameshift_start_codon = None
             if "fs" in line:
                 m_p = re.search(
-                    r"p\.[A-Z][a-z]{2}?(\\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\\d+)",
+                    r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
                     line,
                     re.IGNORECASE
                 )
