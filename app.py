@@ -139,10 +139,10 @@ with tab_input:
     This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
     """, unsafe_allow_html=True)
 
-    gene_tx_key = st.selectbox(
+   gene_tx_key = st.selectbox(
     "Select gene and transcript:",
     options=list(TRANSCRIPTS.keys()),
-    format_func=lambda x: x.replace("_", " / ").replace(" / ", " / "),
+    format_func=lambda x: x.split("_", 1)[0] + " / " + x.split("_", 1)[1],
     key="gene_tx_key",
 )
 
