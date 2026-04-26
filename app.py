@@ -140,13 +140,22 @@ with tab_input:
     This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
     """, unsafe_allow_html=True)
 
-    # Simple format: ASXL1_NM_015338.5 → ASXL1 / NM / 015338.5
-    gene_tx_key = st.selectbox(
+    # === DROPDOWN (Always visible) ===
+    selected = st.selectbox(
         "Select gene and transcript:",
         options=list(TRANSCRIPTS.keys()),
+        index=None,
+        placeholder="Select a transcript...",
         format_func=lambda x: x.replace("_", " / "),
         key="gene_tx_key",
     )
+
+    # === HIDE EVERYTHING UNTIL SELECTION ===
+    if selected is None:
+        st.info("Please select a transcript from the dropdown to start.")
+    else:
+        # EVERYTHING BELOW IS INDENTED BY 4 SPACES
+        current = get_params(selected)
 
     current = get_params(st.session_state.gene_tx_key)
 
