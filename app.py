@@ -140,11 +140,11 @@ with tab_input:
     """, unsafe_allow_html=True)
 
     gene_tx_key = st.selectbox(
-        "Select gene and transcript:",
-        options=list(TRANSCRIPTS.keys()),
-        format_func=lambda x: x.replace("_", " / "),
-        key="gene_tx_key",
-    )
+    "Select gene and transcript:",
+    options=list(TRANSCRIPTS.keys()),
+    format_func=lambda x: x.replace("_", " / ").replace(" / ", " / "),
+    key="gene_tx_key",
+)
 
     current = get_params(st.session_state.gene_tx_key)
 
