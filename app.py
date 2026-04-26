@@ -210,6 +210,7 @@ with tab_input:
                     if m_p:
                         frameshift_start_codon = int(m_p.group(1))
 
+                # === CORE LOGIC WITH YOUR ORIGINAL CAVEATS ===
                 if ptc_c_pos <= current["nmd_cutoff_cdna"]:
                     nmd = "YES"
                     nmd_label = "NMD predicted"
@@ -238,6 +239,8 @@ with tab_input:
                         "</span>"
                     )
                     card_color = "🧬"
+                    fraction_lost = 0.0
+                    perc_lost = 0.0
                 else:
                     nmd = "NO"
                     nmd_label = "Truncated protein"
@@ -268,7 +271,7 @@ with tab_input:
 
                 st.markdown(extra, unsafe_allow_html=True)
 
-                # Data for report
+                # Report data
                 assessment = "Possible driver"
                 mechanism = "Fits mechanism and spectrum of variants"
                 if "DRIVER" in extra:
@@ -313,7 +316,7 @@ with tab_report:
             mime="text/csv"
         )
 
-# --- === GENE TRACK === ---
+# --- Gene Track (unchanged from your working version) ---
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
@@ -338,7 +341,7 @@ if INPUT_DATA:
         st.markdown("**Protein Domains (AA positions from UniProt):**")
         st.dataframe(pd.DataFrame(domains)[["name", "start", "end"]], hide_index=True, use_container_width=True)
 
-    st.caption("⚠️ Exon boundaries and domain positions are approximate visual aids based on NCBI RefSeq.")
+    st.caption("⚠️ Exon boundaries are approximate visual aids based on NCBI RefSeq for these specific transcripts.")
 
     fig, ax = plt.subplots(figsize=(14, 5.5), tight_layout=True)
     y = 0
