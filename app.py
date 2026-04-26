@@ -2,7 +2,7 @@ import streamlit as st
 import re
 
 
-# === TRANSCRIPT DATABASE ================================================
+# === TRANSCRIPT DATABASE ==================================================================
 
 TRANSCRIPTS = {
     "ASXL1_NM_015338.5": (
@@ -32,9 +32,17 @@ def get_params(gene_tx_key):
     }
 
 
-# === HGVS PARSING =================================================================
+# === HGVS PARSING (now more flexible) =====================================================
 
 def extract_c_pos_from_c_hgvs(hgvs_c):
+    """
+    Extract the first cDNA position from c. strings:
+      - c.1234A>G
+      - c.245_247delinsTGA
+      - c.234_235del
+      - c.234_235insA
+      - c.234_235dup
+    """
     m = re.search(r"c\.(\d+)", hgvs_c)
     if m:
         return int(m.group(1))
@@ -66,8 +74,8 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     if not hgvs_str:
         return None, "Empty string"
 
-    # c. part
-    c_match = re.search(r"c\.\d+[ACGT>][a-zA-Z0-9]*", hgvs_str, re.IGNORECASE)
+    # c. part (now handles del/delins/ins/dup)
+    c_match = re.search(r"c\.\d+.*", hgvs_str, re.IGNORECASE)
     if not c_match:
         return None, "No c. part found"
     c_str = c_match.group()
@@ -85,7 +93,7 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     if ptc_codon is None:
         return None, "Failed to parse p. frameshift/stop"
 
-    # codon → cDNA (first base of codon)
+    # codon → cDNA (first base of the codon)
     ptc_c_pos = 3 * ptc_codon
     return ptc_c_pos, None
 
@@ -148,22 +156,22 @@ else:
         cds_len = current["reference_mrna_len"]
         prot_len = current["protein_length_aa"]
 
-        ratio = ptc_c_pos / cds_len
-        fraction_lost = 1.0 - ratio
-        fraction_lost = max(0.0, fraction_lost)
-        perc_lost = fraction_lost * 100
-
-        # Assume CDS ends at 3 * prot_len; anything beyond that is 3′ UTR
         cds_end = 3 * prot_len
 
         if ptc_c_pos <= current["nmd_cutoff_cdna"]:
             nmd = "YES (NMD predicted)"
-            impact = "Full loss (NMD)"
+            impact = "Full loss (NMD) – 100% of protein lost"
+            fraction_lost = 1.0
+            perc_lost = 100.0
             extra = "<span style='color:green; font-weight:bold'>DRIVER</span>"
         elif ptc_c_pos > cds_end:
             # PTC in 3′ UTR → extension / chimera‑like
             nmd = "NO (extended / chimera‑like)"
             impact = "Extended protein (3′ UTR PTC)"
+            ratio = ptc_c_pos / cds_len
+            fraction_lost = 1.0 - ratio
+            fraction_lost = max(0.0, fraction_lost)
+            perc_lost = fraction_lost * 100
             extra = (
                 "<span style='color:orange; font-weight:bold'>"
                 "Chimera‑like construct generated"
@@ -173,6 +181,10 @@ else:
             # Truncated protein (within CDS but after NMD cutoff)
             nmd = "NO (truncated protein)"
             impact = "Truncated protein"
+            ratio = ptc_c_pos / cds_len
+            fraction_lost = 1.0 - ratio
+            fraction_lost = max(0.0, fraction_lost)
+            perc_lost = fraction_lost * 100
             extra = (
                 "<span style='color:orange; font-weight:bold'>"
                 "Possible driver variant – requires assessment of the % of the canonical "
