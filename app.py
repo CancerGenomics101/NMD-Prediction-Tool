@@ -157,8 +157,6 @@ with tab_input:
         # EVERYTHING BELOW IS INDENTED BY 4 SPACES
         current = get_params(selected)
 
-    current = get_params(st.session_state.gene_tx_key)
-
     st.markdown(f"""
     You are currently using:
     - **Gene:** {current['gene']}  
