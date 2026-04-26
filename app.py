@@ -146,7 +146,7 @@ with tab_input:
         # HGVS input: smaller box, no help text, just example line
         st.markdown(
             "<small style='color:#888; font-style:italic; display:block; margin-bottom:4px;'>"
-            "Example: c.424_425del p.Arg143Thrfs*110"
+            "Examples: c.424_425del p.Arg143Thrfs*110; c.62C>G p.Ser21*"
             "</small>",
             unsafe_allow_html=True,
         )
