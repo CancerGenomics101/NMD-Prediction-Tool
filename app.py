@@ -4,161 +4,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
+# Import data from separate file
+from data import TRANSCRIPTS, PROTEIN_DOMAINS, EXONS, EDUCATIONAL_FACTS
+
 # === Configure page layout (full width) ==================================================
 st.set_page_config(
     page_title="NMD Predictor v1.0",
     layout="wide",
 )
-
-# === TRANSCRIPT DATABASE (add these two new entries) ===============================
-TRANSCRIPTS = {
-    "ASXL1_NM_015338.5": (
-        "NM_015338.5",
-        1669,
-        4623,
-        1541,
-    ),
-    "TET2_NM_001127208.2": (
-        "NM_001127208.2",
-        4487,
-        6006,
-        2002,
-    ),
-    "DNMT3A_NM_175629.2": (
-        "NM_175629.2",
-        2547,      # NMD cutoff c.2547
-        4395,      # your reference mRNA length
-        912,       # AA length
-    ),
-    "TP53_NM_000546.5": (
-        "NM_000546.5",
-        1050,      # NMD cutoff c.1050
-        2591,      # your reference mRNA length
-        393,       # AA length
-    ),
-}
-
-# === PROTEIN DOMAINS =====================================================================
-PROTEIN_DOMAINS = {
-    "ASXL1_NM_015338.5": [
-        {"name": "HARE-HTH", "start": 11,  "end": 86,   "color": "#4CAF50"},
-        {"name": "DEUBAD",   "start": 255, "end": 364,  "color": "#2196F3"},
-        {"name": "PHD",      "start": 1503,"end": 1540, "color": "#FF9800"},
-    ],
-    "TET2_NM_001127208.2": [
-        {"name": "Cys-rich", "start": 1130, "end": 1300, "color": "#9C27B0"},
-        {"name": "Tet_JBP",  "start": 1300, "end": 2002, "color": "#FF5722"},
-    ],
-    "DNMT3A_NM_175629.2": [
-        {"name": "PWWP",      "start": 280, "end": 367,  "color": "#4CAF50"},
-        {"name": "ADD",       "start": 600, "end": 712,  "color": "#2196F3"},
-        {"name": "MTase",     "start": 634, "end": 912,  "color": "#FF9800"},
-    ],
-    "TP53_NM_000546.5": [
-        {"name": "Transactivation", "start": 1,   "end": 61,  "color": "#4CAF50"},
-        {"name": "DNA-binding",     "start": 94,  "end": 312, "color": "#2196F3"},
-        {"name": "Tetramerisation", "start": 325, "end": 356, "color": "#FF9800"},
-    ],
-}
-
-# === EXON BOUNDARIES =====================================================================
-EXONS = {
-    "ASXL1_NM_015338.5": [
-        (1,   19,  "ex1"),  (20,  47,  "ex2"),  (48,  48,  "ex3"),
-        (49,  84,  "ex4"),  (85, 124,  "ex5"),  (125, 157, "ex6"),
-        (158, 188, "ex7"),  (189, 239, "ex8"),  (240, 294, "ex9"),
-        (295, 327, "ex10"), (328, 362, "ex11"), (363, 573, "ex12"),
-        (574,1541, "ex13"),
-    ],
-    "TET2_NM_001127208.2": [
-        (1,   60,  "ex1"),  (61, 117, "ex2"),  (118, 173, "ex3"),
-        (174, 240, "ex4"),  (241, 317, "ex5"),  (318, 393, "ex6"),
-        (394, 473, "ex7"),  (474, 550, "ex8"),  (551, 607, "ex9"),
-        (608,1496, "ex10"), (1497,2002,"ex11"),
-    ],
-    "DNMT3A_NM_175629.2": [
-        (1, 120, "ex1"),   (121, 220, "ex2"),  (221, 300, "ex3"),
-        (301, 380, "ex4"), (381, 460, "ex5"),  (461, 540, "ex6"),
-        (541, 620, "ex7"), (621, 700, "ex8"),  (701, 780, "ex9"),
-        (781, 860, "ex10"),(861, 912, "ex11-23"),   # catalytic domain in later exons
-    ],
-    "TP53_NM_000546.5": [
-        (1,  42, "ex1"),  (43,  82, "ex2"),  (83,  93, "ex3"),
-        (94, 140, "ex4"), (141, 186, "ex5"), (187, 222, "ex6"),
-        (223, 260, "ex7"),(261, 292, "ex8"), (293, 312, "ex9"),
-        (313, 356, "ex10"),(357, 393, "ex11"),
-    ],
-}
-
-# === EDUCATIONAL FACTS ===================================================================
-EDUCATIONAL_FACTS = [
-    "Nonsense-mediated decay (NMD) typically degrades transcripts with premature termination codons more than 50–55 nucleotides upstream of the last exon-exon junction.",
-    "The 'last exon rule' means truncating variants in the final exon often escape NMD and produce truncated proteins.",
-    "Tumor suppressor genes are particularly sensitive to loss-of-function variants, making accurate NMD prediction clinically important.",
-    "Frameshift variants near the C-terminus are less likely to trigger NMD than those early in the protein.",
-    "The position of a variant relative to key protein domains is often more biologically important than the exact percentage of protein lost.",
-]
-
-def get_params(gene_tx_key):
-    tx, nmd_cut, mrna_len, prot_len = TRANSCRIPTS[gene_tx_key]
-    return {
-        "gene_tx_key": gene_tx_key,
-        "gene": gene_tx_key.split("_")[0],
-        "transcript": tx,
-        "nmd_cutoff_cdna": nmd_cut,
-        "reference_mrna_len": mrna_len,
-        "protein_length_aa": prot_len,
-    }
-
-def get_domains(gene_tx_key):
-    return PROTEIN_DOMAINS.get(gene_tx_key, [])
-
-def get_exons(gene_tx_key):
-    return EXONS.get(gene_tx_key, [])
-
-# === HGVS PARSING ========================================================================
-def extract_c_pos_from_c_hgvs(hgvs_c):
-    m = re.search(r"c\.(\d+)", hgvs_c)
-    if m:
-        return int(m.group(1))
-    return None
-
-def parse_p_ptc_position(hgvs_p):
-    hgvs_p = hgvs_p.strip()
-    m = re.search(r"p\.[A-Z][a-z]{2}(\d+)(?:\*|Ter)", hgvs_p, re.IGNORECASE)
-    if m:
-        return int(m.group(1))
-    m = re.search(
-        r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
-        hgvs_p,
-        re.IGNORECASE
-    )
-    if m:
-        aa_start = int(m.group(1))
-        n_aa_new = int(m.group(3))
-        return aa_start + n_aa_new - 1
-    return None
-
-def hgvs_to_ptc_c_pos(hgvs_str):
-    hgvs_str = hgvs_str.strip()
-    if not hgvs_str:
-        return None, "Empty string"
-    c_match = re.search(r"c\.\d+.*", hgvs_str, re.IGNORECASE)
-    if not c_match:
-        return None, "No c. part found"
-    c_str = c_match.group()
-    c_start = extract_c_pos_from_c_hgvs(c_str)
-    if c_start is None:
-        return None, "Failed to parse c. position"
-    p_match = re.search(r"p\.[^ ]*", hgvs_str, re.IGNORECASE)
-    if not p_match:
-        return None, "No p. part found"
-    p_str = p_match.group()
-    ptc_codon = parse_p_ptc_position(p_str)
-    if ptc_codon is None:
-        return None, "Failed to parse p. frameshift/stop"
-    ptc_c_pos = 3 * ptc_codon
-    return ptc_c_pos, None
 
 # === STREAMLIT LAYOUT ====================================================================
 st.markdown("<h1>NMD Predictor v1.0</h1>", unsafe_allow_html=True)
@@ -175,9 +28,12 @@ with tab_input:
     This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
     """, unsafe_allow_html=True)
 
+    # Alphabetical sorting of genes in dropdown
+    sorted_genes = sorted(TRANSCRIPTS.keys())
+
     gene_tx_key = st.selectbox(
         "Select gene and transcript:",
-        options=list(TRANSCRIPTS.keys()),
+        options=sorted_genes,
         format_func=lambda x: x.replace("_", " / "),
         placeholder="Please select a gene and transcript",
         index=None,
@@ -187,7 +43,8 @@ with tab_input:
     if not gene_tx_key:
         st.info("⚠️ Please select a gene and transcript to continue.")
     else:
-        current = get_params(gene_tx_key)
+        current = get_params(gene_tx_key)   # We'll define this below
+
         st.markdown(f"""
         You are currently using:
         - **Gene:** {current['gene']}
@@ -350,7 +207,7 @@ with tab_report:
             mime="text/csv"
         )
 
-# --- Gene Track (unchanged from your working version) ---
+# --- Gene Track ---
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
@@ -372,7 +229,7 @@ if INPUT_DATA:
 
     domains = get_domains(st.session_state.gene_tx_key)
     if domains:
-        st.markdown("**Protein Domains (Gold Standard Curated AA Positions from UniProt):**")
+        st.markdown("**Protein Domains (AA positions from UniProt):**")
         st.dataframe(pd.DataFrame(domains)[["name", "start", "end"]], hide_index=True, use_container_width=True)
 
     st.caption("⚠️ Exon boundaries are approximate visual aids based on NCBI RefSeq for these specific transcripts.")
