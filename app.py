@@ -119,7 +119,7 @@ st.markdown("<p style='font-size:14px; color:#666;'>(HGVS input, GRCh37)</p>", u
 st.markdown("""
 
 **Ownership and use notice:**  
-This NMD Predictor is an in‑house tool developed by [Your Name/Your Lab].  
+This NMD Predictor is an in‑house tool developed by Ashley Sunderland.  
 You may use it for internal educational and analytical purposes, but reproduction, redistribution, or commercial use without prior written permission is not permitted.  
 This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
 """)
@@ -262,7 +262,7 @@ else:
 # Footer (optional)
 st.markdown(
     "<p style='font-size:12px; color:#888; text-align:center; margin-top:30px;'>"
-    "© 2026 [Your Name/Your Lab] • NMD Predictor (educational use only, no reproduction without permission)."
+    "© 2026 Ashley Sunderland • NMD Predictor (educational use only, no reproduction without permission)."
     "</p>",
     unsafe_allow_html=True,
 )
