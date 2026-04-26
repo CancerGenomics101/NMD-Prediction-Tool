@@ -32,7 +32,7 @@ def get_params(gene_tx_key):
     }
 
 
-# === HGVS PARSING (handles c., p.*, del/delins/ins/dup, fs*50 etc.) =====================
+# === HGVS PARSING ========================================================================
 
 def extract_c_pos_from_c_hgvs(hgvs_c):
     """
@@ -115,6 +115,14 @@ def hgvs_to_ptc_c_pos(hgvs_str):
 
 st.markdown("<h1>NMD Predictor V1.0</h1>", unsafe_allow_html=True)
 st.markdown("<p style='font-size:14px; color:#666;'>(HGVS input, GRCh37)</p>", unsafe_allow_html=True)
+
+st.markdown("""
+
+**Ownership and use notice:**  
+This NMD Predictor is an in‑house tool developed by [Your Name/Your Lab].  
+You may use it for internal educational and analytical purposes, but reproduction, redistribution, or commercial use without prior written permission is not permitted.  
+This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
+""")
 
 gene_tx_key = st.selectbox(
     "Select gene and transcript:",
@@ -250,3 +258,11 @@ else:
             st.markdown(f"**Approx. protein lost:** {fraction_lost:.2f} ({perc_lost:.1f}%)")
 
         st.markdown(extra, unsafe_allow_html=True)
+
+# Footer (optional)
+st.markdown(
+    "<p style='font-size:12px; color:#888; text-align:center; margin-top:30px;'>"
+    "© 2026 [Your Name/Your Lab] • NMD Predictor (educational use only, no reproduction without permission)."
+    "</p>",
+    unsafe_allow_html=True,
+)
