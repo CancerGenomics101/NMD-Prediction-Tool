@@ -32,7 +32,7 @@ def get_params(gene_tx_key):
     }
 
 
-# === HGVS PARSING (now more flexible) =====================================================
+# === HGVS PARSING (handles c., p.*, del/delins/ins/dup, fs*50 etc.) =====================
 
 def extract_c_pos_from_c_hgvs(hgvs_c):
     """
@@ -50,16 +50,26 @@ def extract_c_pos_from_c_hgvs(hgvs_c):
 
 
 def parse_p_ptc_position(hgvs_p):
+    """
+    Given p. text, return the PTC codon number.
+    Supports:
+      - p.Ser156* / p.Ser156Ter
+      - p.Arg78fs*50, p.Trp343Alafs*39, etc.
+    """
     hgvs_p = hgvs_p.strip()
 
-    # p.Ser156* / p.Ser156Ter
+    # Case 1: simple nonsense (p.Ser156* or p.Ser156Ter)
     m = re.search(r"p\.[A-Z][a-z]{2}(\d+)(?:\*|Ter)", hgvs_p, re.IGNORECASE)
     if m:
         aa_stop = int(m.group(1))
         return aa_stop
 
-    # p.Trp343Alafs*39
-    m = re.search(r"p\.[A-Z][a-z]{2}(\d+)[A-Z][a-z]{2}?fs(?:Ter|\*)?(\d+)", hgvs_p, re.IGNORECASE)
+    # Case 2: frameshift (p.Arg78fs*50, p.Trp343fs*39)
+    m = re.search(
+        r"p\.[A-Z][a-z]{2}?(\d+)fs(?:Ter|\*)?(\d+)",
+        hgvs_p,
+        re.IGNORECASE
+    )
     if m:
         aa_start = int(m.group(1))
         n_aa_new = int(m.group(2))
@@ -70,11 +80,14 @@ def parse_p_ptc_position(hgvs_p):
 
 
 def hgvs_to_ptc_c_pos(hgvs_str):
+    """
+    From HGVS‑style text (c. + p.), return the PTC cDNA position.
+    """
     hgvs_str = hgvs_str.strip()
     if not hgvs_str:
         return None, "Empty string"
 
-    # c. part (now handles del/delins/ins/dup)
+    # Extract c. part (flexible: del/delins/ins/dup)
     c_match = re.search(r"c\.\d+.*", hgvs_str, re.IGNORECASE)
     if not c_match:
         return None, "No c. part found"
@@ -83,7 +96,7 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     if c_start is None:
         return None, "Failed to parse c. position"
 
-    # p. part
+    # Extract p. part
     p_match = re.search(r"p\.[^ ]*", hgvs_str, re.IGNORECASE)
     if not p_match:
         return None, "No p. part found"
@@ -93,7 +106,7 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     if ptc_codon is None:
         return None, "Failed to parse p. frameshift/stop"
 
-    # codon → cDNA (first base of the codon)
+    # codon → cDNA (first base of codon)
     ptc_c_pos = 3 * ptc_codon
     return ptc_c_pos, None
 
@@ -102,11 +115,11 @@ def hgvs_to_ptc_c_pos(hgvs_str):
 
 st.title("NMD Predictor (HGVS input, GRCh37)")
 
-st.selectbox(
+gene_tx_key = st.selectbox(
     "Select gene and transcript:",
-    key="gene_tx_key",
     options=list(TRANSCRIPTS.keys()),
     format_func=lambda x: x.replace("_", " / "),
+    key="gene_tx_key",
 )
 
 current = get_params(st.session_state.gene_tx_key)
@@ -155,28 +168,53 @@ else:
         # NMD vs truncated vs UTR‑extension
         cds_len = current["reference_mrna_len"]
         prot_len = current["protein_length_aa"]
-
         cds_end = 3 * prot_len
 
+        # Detect frameshift start codon if possible
+        frameshift_start_codon = None
+        if "fs" in line:
+            m_p = re.search(
+                r"p\.[A-Z][a-z]{2}?(\d+)fs(?:Ter|\*)?(\d+)",
+                line,
+                re.IGNORECASE
+            )
+            if m_p:
+                frameshift_start_codon = int(m_p.group(1))
+
         if ptc_c_pos <= current["nmd_cutoff_cdna"]:
+            # NMD → 100% lost
             nmd = "YES (NMD predicted)"
             impact = "Full loss (NMD) – 100% of protein lost"
             fraction_lost = 1.0
             perc_lost = 100.0
             extra = "<span style='color:green; font-weight:bold'>DRIVER</span>"
+
         elif ptc_c_pos > cds_end:
-            # PTC in 3′ UTR → extension / chimera‑like
+            # 3′ UTR PTC → chimera‑like; measure % corrupted by frameshift from start
             nmd = "NO (extended / chimera‑like)"
             impact = "Extended protein (3′ UTR PTC)"
-            ratio = ptc_c_pos / cds_len
-            fraction_lost = 1.0 - ratio
-            fraction_lost = max(0.0, fraction_lost)
-            perc_lost = fraction_lost * 100
+
+            if frameshift_start_codon is not None:
+                fraction_corrupted = 1.0 - (frameshift_start_codon - 1) / prot_len
+                fraction_corrupted = max(0.0, fraction_corrupted)
+                perc_corrupted = fraction_corrupted * 100
+                perc_text = f"{perc_corrupted:.1f}%"
+                impact += f" – {perc_text} of canonical protein corrupted by frameshift"
+            else:
+                # fallback using PTC codon (e.g., p.*Ter only)
+                ptc_codon = ptc_c_pos // 3
+                fraction_corrupted = 1.0 - (ptc_codon - 1) / prot_len
+                fraction_corrupted = max(0.0, fraction_corrupted)
+                perc_corrupted = fraction_corrupted * 100
+                perc_text = f"{perc_corrupted:.1f}%"
+                impact += f" – {perc_text} of canonical protein corrupted by frameshift"
+
             extra = (
                 "<span style='color:orange; font-weight:bold'>"
                 "Chimera‑like construct generated"
                 "</span>"
             )
+
         else:
             # Truncated protein (within CDS but after NMD cutoff)
             nmd = "NO (truncated protein)"
@@ -185,6 +223,7 @@ else:
             fraction_lost = 1.0 - ratio
             fraction_lost = max(0.0, fraction_lost)
             perc_lost = fraction_lost * 100
+
             extra = (
                 "<span style='color:orange; font-weight:bold'>"
                 "Possible driver variant – requires assessment of the % of the canonical "
@@ -195,5 +234,11 @@ else:
 
         st.markdown(f"**NMD?:** {nmd}")
         st.markdown(f"**Protein impact:** {impact}")
-        st.markdown(f"**Approx. protein lost:** {fraction_lost:.2f} ({perc_lost:.1f}%)")
+
+        if "corrupted by frameshift" in impact:
+            # For chimera‑like: % corrupted is already in impact text
+            pass
+        else:
+            st.markdown(f"**Approx. protein lost:** {fraction_lost:.2f} ({perc_lost:.1f}%)")
+
         st.markdown(extra, unsafe_allow_html=True)
