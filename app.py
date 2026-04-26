@@ -308,7 +308,7 @@ if INPUT_DATA:
         st.markdown("**Protein Domains (AA positions from UniProt):**")
         st.dataframe(pd.DataFrame(domains)[["name", "start", "end"]], hide_index=True, use_container_width=True)
 
-    st.caption("⚠️ **Note:** Exon boundaries are based on NCBI RefSeq for the exact transcripts (NM_015338.5 / NM_001127208.2). "
+    st.caption("⚠️ **Note:** Exon boundaries are based on NCBI RefSeq for the exact transcripts. "
                "They are approximate AA mappings for visualisation only.")
 
     # Plot
