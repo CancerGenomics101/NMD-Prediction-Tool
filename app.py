@@ -13,14 +13,14 @@ st.set_page_config(
 TRANSCRIPTS = {
     "ASXL1_NM_015338.5": (
         "NM_015338.5",
-        1669,  # c.1669 → NMD cutoff
-        4623,  # CDS ≈ 3 * 1541
+        1669, # c.1669 → NMD cutoff
+        4623, # CDS ≈ 3 * 1541
         1541,
     ),
     "TET2_NM_001127208.2": (
         "NM_001127208.2",
-        4487,  # c.4487 → NMD cutoff
-        6006,  # CDS ≈ 3 * 2002
+        4487, # c.4487 → NMD cutoff
+        6006, # CDS ≈ 3 * 2002
         2002,
     ),
 }
@@ -32,24 +32,26 @@ def get_params(gene_tx_key):
         "gene": gene_tx_key.split("_")[0],
         "transcript": tx,
         "nmd_cutoff_cdna": nmd_cut,
-        "reference_mrna_len": mrna_len,
+        "reference_mrna_len": mrna_len, # CDS for % protein
         "protein_length_aa": prot_len,
     }
 
 # === HGVS PARSING ========================================================================
 def extract_c_pos_from_c_hgvs(hgvs_c):
+    """Extract the first cDNA position from c. strings"""
     m = re.search(r"c.(\d+)", hgvs_c)
     if m:
         return int(m.group(1))
     return None
 
 def parse_p_ptc_position(hgvs_p):
+    """Given p. text, return the PTC codon number."""
     hgvs_p = hgvs_p.strip()
-    # Case 1: simple nonsense
+    # Case 1: simple nonsense (p.Ser156* or p.Ser156Ter)
     m = re.search(r"p.[A-Z][a-z]{2}(\d+)(?:\*|Ter)", hgvs_p, re.IGNORECASE)
     if m:
-        return int(m.group(1))
-    
+        aa_stop = int(m.group(1))
+        return aa_stop
     # Case 2: frameshift
     m = re.search(
         r"p.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
@@ -59,14 +61,16 @@ def parse_p_ptc_position(hgvs_p):
     if m:
         aa_start = int(m.group(1))
         n_aa_new = int(m.group(3))
-        return aa_start + n_aa_new - 1
+        ptc_codon = aa_start + n_aa_new - 1
+        return ptc_codon
     return None
 
 def hgvs_to_ptc_c_pos(hgvs_str):
+    """From HGVS‑style text (c. + p.), return the PTC cDNA position."""
     hgvs_str = hgvs_str.strip()
     if not hgvs_str:
         return None, "Empty string"
-    
+    # Extract c. part
     c_match = re.search(r"c.\d+.*", hgvs_str, re.IGNORECASE)
     if not c_match:
         return None, "No c. part found"
@@ -74,7 +78,7 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     c_start = extract_c_pos_from_c_hgvs(c_str)
     if c_start is None:
         return None, "Failed to parse c. position"
-    
+    # Extract p. part
     p_match = re.search(r"p.[^ ]*", hgvs_str, re.IGNORECASE)
     if not p_match:
         return None, "No p. part found"
@@ -82,158 +86,166 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     ptc_codon = parse_p_ptc_position(p_str)
     if ptc_codon is None:
         return None, "Failed to parse p. frameshift/stop"
-    
+    # codon → cDNA
     ptc_c_pos = 3 * ptc_codon
     return ptc_c_pos, None
 
 # === STREAMLIT LAYOUT ====================================================================
 st.markdown("# NMD Predictor V1.0", unsafe_allow_html=True)
 
-# Create two tabs
+# Create two tabs: Input and Report
 tab_input, tab_report = st.tabs(["Input (Tool)", "Report (Structured Output)"])
 
 INPUT_DATA = []
 
 with tab_input:
-    st.markdown("""
-    **Ownership and use notice:**  
-    This NMD Predictor is an in‑house tool developed by **Ashley Sunderland**.  
-    You may use it for internal educational and analytical purposes, but reproduction, redistribution, or commercial use without prior written permission is not permitted.  
-    This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
+    st.markdown(""" 
+    **Ownership and use notice:** 
+    This NMD Predictor is an in‑house tool developed by **Ashley Sunderland**. 
+    You may use it for internal educational and analytical purposes, but reproduction, redistribution, or commercial use without prior written permission is not permitted. 
+    This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**. 
     """, unsafe_allow_html=True)
 
-    # === GENE + TRANSCRIPT SELECTOR (blank on load) =============================
+    # === MODIFIED SELECTBOX - starts blank =====================================
     gene_tx_key = st.selectbox(
         "Select gene and transcript:",
         options=list(TRANSCRIPTS.keys()),
         format_func=lambda x: x.replace("_", " / "),
         placeholder="Please select a gene and transcript",
-        index=None,                    # Makes it blank initially
+        index=None,                    # Makes it blank on load
         key="gene_tx_key",
     )
 
-    # Hide everything else until a selection is made
     if not gene_tx_key:
-        st.warning("⚠️ Please select a gene and transcript to continue.")
-        st.stop()
-
-    # Only runs after a valid selection
-    current = get_params(gene_tx_key)
-
-    st.markdown(f"""
-    You are currently using:  
-    - **Gene:** {current['gene']}  
-    - **Transcript:** {current['transcript']}  
-    - **NMD cutoff:** cDNA position ≤ {current['nmd_cutoff_cdna']} → NMD predicted  
-    - **Protein length:** {current['protein_length_aa']} aa  
-    (CDS ≈ {current['reference_mrna_len']} bp)
-    """)
-
-    st.markdown(
-        """<span style="font-size:0.9em">Example: c.424_425del p.Arg143Thrfs*110</span>""",
-        unsafe_allow_html=True,
-    )
-
-    input_text = st.text_area(
-        "Paste HGVS variant (c. and p.):",
-        height=60,
-    )
-
-    if not input_text.strip():
-        st.info("Paste a variant in the box above (e.g., c.424_425del p.Arg143Thrfs*110).")
+        st.info("Please select a gene and transcript to continue.")   # Changed to st.info so it's not yellow
+        # Footer will still show because it's outside this block
     else:
-        hgvs_lines = [line.strip() for line in input_text.split("\n") if line.strip()]
-        for i, line in enumerate(hgvs_lines):
-            st.divider()
-            st.markdown(f"**Variant #{i+1}:** {line}")
-            ptc_c_pos, err = hgvs_to_ptc_c_pos(line)
-            if err:
-                st.error(f"Parsing error: {err}")
-                continue
+        current = get_params(gene_tx_key)
 
-            st.write(f"**PTC codon:** {ptc_c_pos // 3}")
-            st.write(f"**PTC cDNA position:** c.{ptc_c_pos}")
+        st.markdown(f""" 
+        You are currently using: 
+        - **Gene:** {current['gene']} 
+        - **Transcript:** {current['transcript']} 
+        - **NMD cutoff:** cDNA position ≤ {current['nmd_cutoff_cdna']} → NMD predicted 
+        - **Protein length:** {current['protein_length_aa']} aa 
+        (CDS ≈ {current['reference_mrna_len']} bp, no premature stop.) 
+        """)
 
-            if ptc_c_pos <= 100:
-                st.warning(
-                    "⚠️ **WARNING:** This variant occurs within the first 100 bp. "
-                    "Currently this tool does not acknowledge the use of alternative transcripts. "
-                    "Use scientific judgement."
-                )
+        # HGVS input
+        st.markdown(
+            """<span style="font-size:0.9em">Example: c.424_425del p.Arg143Thrfs*110</span>""",
+            unsafe_allow_html=True,
+        )
 
-            cds_len = current["reference_mrna_len"]
-            prot_len = current["protein_length_aa"]
-            cds_end = 3 * prot_len
+        input_text = st.text_area(
+            "Paste HGVS variant (c. and p.):",
+            height=60,
+        )
 
-            frameshift_start_codon = None
-            if "fs" in line:
-                m_p = re.search(
-                    r"p.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
-                    line,
-                    re.IGNORECASE
-                )
-                if m_p:
-                    frameshift_start_codon = int(m_p.group(1))
+        if not input_text.strip():
+            st.info("Paste a variant in the box above (e.g., c.424_425del p.Arg143Thrfs*110).")
+        else:
+            hgvs_lines = [line.strip() for line in input_text.split("\n") if line.strip()]
+            for i, line in enumerate(hgvs_lines):
+                st.divider()
+                st.markdown(f"**Variant #{i+1}:** {line}")
+                ptc_c_pos, err = hgvs_to_ptc_c_pos(line)
+                if err:
+                    st.error(f"Parsing error: {err}")
+                    continue
+                st.write(f"**PTC codon:** {ptc_c_pos // 3}")
+                st.write(f"**PTC cDNA position:** c.{ptc_c_pos}")
 
-            if ptc_c_pos <= current["nmd_cutoff_cdna"]:
-                nmd = "YES"
-                nmd_label = "NMD predicted"
-                impact = "Full loss (NMD) – 100% of protein lost"
-                fraction_lost = 1.0
-                perc_lost = 100.0
-                extra = "DRIVER"
-            elif ptc_c_pos > cds_end:
-                nmd = "NO"
-                nmd_label = "Extended / chimera‑like"
-                impact = "Extended protein (3′ UTR PTC)"
-                if frameshift_start_codon is not None:
-                    fraction_corrupted = 1.0 - (frameshift_start_codon - 1) / prot_len
-                    fraction_corrupted = max(0.0, fraction_corrupted)
-                    perc_corrupted = fraction_corrupted * 100
-                    impact += f" – {perc_corrupted:.1f}% of canonical protein corrupted"
+                if ptc_c_pos <= 100:
+                    st.warning(
+                        "⚠️ **WARNING:** This variant occurs within the first 100 bp. "
+                        "Currently this tool does not acknowledge the use of alternative transcripts. "
+                        "Use scientific judgement."
+                    )
+
+                cds_len = current["reference_mrna_len"]
+                prot_len = current["protein_length_aa"]
+                cds_end = 3 * prot_len
+
+                frameshift_start_codon = None
+                if "fs" in line:
+                    m_p = re.search(
+                        r"p.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
+                        line,
+                        re.IGNORECASE
+                    )
+                    if m_p:
+                        frameshift_start_codon = int(m_p.group(1))
+
+                if ptc_c_pos <= current["nmd_cutoff_cdna"]:
+                    nmd = "YES"
+                    nmd_label = "NMD predicted"
+                    impact = "Full loss (NMD) – 100% of protein lost"
+                    fraction_lost = 1.0
+                    perc_lost = 100.0
+                    extra = "DRIVER"
+                elif ptc_c_pos > cds_end:
+                    nmd = "NO"
+                    nmd_label = "Extended / chimera‑like"
+                    impact = "Extended protein (3′ UTR PTC)"
+                    if frameshift_start_codon is not None:
+                        fraction_corrupted = 1.0 - (frameshift_start_codon - 1) / prot_len
+                        fraction_corrupted = max(0.0, fraction_corrupted)
+                        perc_corrupted = fraction_corrupted * 100
+                        perc_text = f"{perc_corrupted:.1f}%"
+                        impact += f" – {perc_text} of canonical protein corrupted by frameshift"
+                    else:
+                        ptc_codon = ptc_c_pos // 3
+                        fraction_corrupted = 1.0 - (ptc_codon - 1) / prot_len
+                        fraction_corrupted = max(0.0, fraction_corrupted)
+                        perc_corrupted = fraction_corrupted * 100
+                        perc_text = f"{perc_corrupted:.1f}%"
+                        impact += f" – {perc_text} of canonical protein corrupted by frameshift"
+                    extra = (
+                        "Chimera‑like construct generated. Possible driver – "
+                        "please consider % of the canonical protein compromised and downstream loss of function (LOF) variants."
+                    )
                 else:
-                    ptc_codon = ptc_c_pos // 3
-                    fraction_corrupted = 1.0 - (ptc_codon - 1) / prot_len
-                    fraction_corrupted = max(0.0, fraction_corrupted)
-                    perc_corrupted = fraction_corrupted * 100
-                    impact += f" – {perc_corrupted:.1f}% of canonical protein corrupted"
-                extra = "Chimera‑like construct generated. Possible driver – please consider % of the canonical protein compromised."
-            else:
-                nmd = "NO"
-                nmd_label = "Truncated protein"
-                impact = "Truncated protein"
-                ratio = ptc_c_pos / cds_len
-                fraction_lost = 1.0 - ratio
-                fraction_lost = max(0.0, fraction_lost)
-                perc_lost = fraction_lost * 100
-                extra = ("Possible driver variant – requires assessment of the % of the canonical "
-                         "protein compromised and database evidence.")
+                    nmd = "NO"
+                    nmd_label = "Truncated protein"
+                    impact = "Truncated protein"
+                    ratio = ptc_c_pos / cds_len
+                    fraction_lost = 1.0 - ratio
+                    fraction_lost = max(0.0, fraction_lost)
+                    perc_lost = fraction_lost * 100
+                    extra = (
+                        "Possible driver variant – requires assessment of the % of the canonical "
+                        "protein compromised and database evidence, including downstream loss of "
+                        "function (LOF) variants"
+                    )
 
-            assessment = "Possible driver"
-            mechanism = "Fits mechanism and spectrum of variants"
-            if "DRIVER" in extra:
-                assessment = "DRIVER"
-            elif "Chimera" in extra:
-                mechanism = "Chimera‑like construct"
+                assessment = "Possible driver"
+                mechanism = "Fits mechanism and spectrum of variants"
+                if "DRIVER" in extra:
+                    assessment = "DRIVER"
+                elif "Chimera‑like construct" in extra:
+                    mechanism = "Chimera‑like construct"
 
-            INPUT_DATA.append({
-                "Variant": line,
-                "Gene": current["gene"],
-                "Transcript": current["transcript"],
-                "PTC codon": ptc_c_pos // 3,
-                "PTC cDNA": f"c.{ptc_c_pos}",
-                "NMD": nmd_label,
-                "Assessment": assessment,
-                "Mechanism / driver note": mechanism,
-                "Protein impact": impact,
-                "Extra": extra,
-            })
+                INPUT_DATA.append({
+                    "Variant": line,
+                    "Gene": current["gene"],
+                    "Transcript": current["transcript"],
+                    "PTC codon": ptc_c_pos // 3,
+                    "PTC cDNA": f"c.{ptc_c_pos}",
+                    "NMD": nmd_label,
+                    "Assessment": assessment,
+                    "Mechanism / driver note": mechanism,
+                    "Protein impact": impact,
+                    "Extra": extra,
+                })
 
-            st.markdown(f"**NMD?:** {nmd} ({nmd_label})")
-            st.markdown(f"**Protein impact:** {impact}")
-            if "corrupted" not in impact:
-                st.markdown(f"**Approx. protein lost:** {fraction_lost:.2f} ({perc_lost:.1f}%)")
-            st.markdown(extra, unsafe_allow_html=True)
+                st.markdown(f"**NMD?:** {nmd} ({nmd_label})")
+                st.markdown(f"**Protein impact:** {impact}")
+                if "corrupted by frameshift" in impact:
+                    pass
+                else:
+                    st.markdown(f"**Approx. protein lost:** {fraction_lost:.2f} ({perc_lost:.1f}%)")
+                st.markdown(extra, unsafe_allow_html=True)
 
 with tab_report:
     if not INPUT_DATA:
@@ -248,10 +260,10 @@ with tab_report:
         st.dataframe(display_df, use_container_width=True, hide_index=True)
         st.divider()
         st.markdown("**CSV‑style summary (for copy‑paste):**")
-        st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment",
+        st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment", 
                     "Mechanism / driver note", "Protein impact"]].to_csv(index=False))
 
-# --- Gene Track (only shows if data exists) ---
+# --- === GENE TRACK WITH NMD CUTOFF AT THE BOTTOM OF THE PAGE === ---
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
@@ -261,12 +273,12 @@ if INPUT_DATA:
     variant_label = last["Variant"].split()[-1]
 
     codon_ptc = parse_p_ptc_position(last["Variant"].strip())
-    ptc_c_pos = 3 * codon_ptc if codon_ptc else 0
+    ptc_c_pos = 3 * codon_ptc
 
     frameshift_start_codon = None
     if "fs" in last["Variant"]:
         m_p = re.search(r"p.[A-Z][a-z]{2}?(\d+)", last["Variant"], re.IGNORECASE)
-        if m_p:
+        if m_p: 
             frameshift_start_codon = int(m_p.group(1))
 
     var_origin = 3 * frameshift_start_codon if frameshift_start_codon else ptc_c_pos
@@ -298,13 +310,12 @@ if INPUT_DATA:
 
     if ptc_c_pos > cds_end:
         ax.set_xlim(1, ptc_c_pos + 200)
-        ax.axhspan(-0.8, -0.3, xmin=(cds_end / (ptc_c_pos + 200)), xmax=0.98,
-                   color="lightyellow", alpha=0.5)
+        ax.axhspan(-0.8, -0.3, xmin=(cds_end / (ptc_c_pos + 200)), xmax=0.98, color="lightyellow", alpha=0.5)
         ax.text(cds_end + 10, -0.55, "3′ UTR", fontsize=8, color="black", ha="left")
 
     st.pyplot(fig, use_container_width=True)
 
-# Footer (always visible)
+# Footer (copyright notice) - always visible
 st.markdown(
     """
     <hr>
