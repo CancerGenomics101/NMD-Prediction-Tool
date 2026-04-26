@@ -1,7 +1,7 @@
 # NMD-Prediction-Tool V1.0
 Users can input HGVS nomenclature to automatically calculate whether nonsense mediated decay is likely to occur in the selected gene. 
 
-Available genes in current release: ASXL1 (NM_015338.5), TET2 (NM_001127208.2).
+Available genes in current release: ASXL1 (NM_015338.5), TET2 (NM_001127208.2), DNMT3A (NM_175629.2), TP53 (NM_000546.5).
 
 Copyright (c) 2026 Ashley Sunderland
 
