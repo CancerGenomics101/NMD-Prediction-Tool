@@ -2,10 +2,11 @@ import streamlit as st
 import re
 import pandas as pd
 import matplotlib.pyplot as plt
+import random
 
 # === Configure page layout (full width) ==================================================
 st.set_page_config(
-    page_title="NMD Predictor v1.0",
+    page_title="NMD Predictor V1.0",
     layout="wide",
 )
 
@@ -25,7 +26,7 @@ TRANSCRIPTS = {
     ),
 }
 
-# === PROTEIN DOMAINS (curated from UniProt) =============================================
+# === PROTEIN DOMAINS =====================================================================
 PROTEIN_DOMAINS = {
     "ASXL1_NM_015338.5": [
         {"name": "HARE-HTH", "start": 1,   "end": 150,  "color": "#4CAF50"},
@@ -38,7 +39,7 @@ PROTEIN_DOMAINS = {
     ],
 }
 
-# === EXON BOUNDARIES (AA) - Accurate from NCBI RefSeq for exact transcripts =============
+# === EXON BOUNDARIES (AA) - from NCBI RefSeq ============================================
 EXONS = {
     "ASXL1_NM_015338.5": [
         (1,   19,  "ex1"),  (20,  47,  "ex2"),  (48,  48,  "ex3"),
@@ -54,6 +55,15 @@ EXONS = {
         (608,1496, "ex10"), (1497,2002,"ex11"),
     ],
 }
+
+# === EDUCATIONAL FACTS ===================================================================
+EDUCATIONAL_FACTS = [
+    "Nonsense-mediated decay (NMD) is triggered when a premature termination codon is located more than 50-55 nucleotides upstream of the last exon-exon junction.",
+    "Truncating variants in the last exon usually escape NMD and produce a truncated protein (Last Exon Rule).",
+    "Many tumour suppressor genes rely on NMD to protect against dominant-negative effects from truncated proteins.",
+    "The position of a variant relative to protein domains is often more important than the exact percentage of protein lost.",
+    "ASXL1 is highly sensitive to loss-of-function variants, especially those affecting the PHD domain.",
+]
 
 def get_params(gene_tx_key):
     tx, nmd_cut, mrna_len, prot_len = TRANSCRIPTS[gene_tx_key]
@@ -117,7 +127,7 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     return ptc_c_pos, None
 
 # === STREAMLIT LAYOUT ====================================================================
-st.markdown("<h1>NMD Predictor v1.0</h1>", unsafe_allow_html=True)
+st.markdown("<h1>NMD Predictor V1.0</h1>", unsafe_allow_html=True)
 
 tab_input, tab_report = st.tabs(["Input (Tool)", "Report (Structured Output)"])
 
@@ -206,26 +216,14 @@ with tab_input:
                     impact = "Full loss (NMD) – 100% of protein lost"
                     fraction_lost = 1.0
                     perc_lost = 100.0
-                    extra = "<span style='color:green; font-weight:bold'>DRIVER</span>"
+                    card_color = "🟢"
                 elif ptc_c_pos > cds_end:
                     nmd = "NO"
                     nmd_label = "Extended / chimera‑like"
                     impact = "Extended protein (3′ UTR PTC)"
-                    if frameshift_start_codon is not None:
-                        fraction_corrupted = max(0.0, 1.0 - (frameshift_start_codon - 1) / prot_len)
-                        perc_text = f"{fraction_corrupted*100:.1f}%"
-                        impact += f" – {perc_text} of canonical protein corrupted by frameshift"
-                    else:
-                        ptc_codon = ptc_c_pos // 3
-                        fraction_corrupted = max(0.0, 1.0 - (ptc_codon - 1) / prot_len)
-                        perc_text = f"{fraction_corrupted*100:.1f}%"
-                        impact += f" – {perc_text} of canonical protein corrupted by frameshift"
-                    extra = (
-                        "<span style='color:orange; font-weight:bold'>"
-                        "Chimera‑like construct generated. Possible driver – "
-                        "please consider % of the canonical protein compromised and downstream loss of function (LOF) variants."
-                        "</span>"
-                    )
+                    fraction_lost = 0.0
+                    perc_lost = 0.0
+                    card_color = "🧬"
                 else:
                     nmd = "NO"
                     nmd_label = "Truncated protein"
@@ -233,19 +231,28 @@ with tab_input:
                     ratio = ptc_c_pos / cds_len
                     fraction_lost = max(0.0, 1.0 - ratio)
                     perc_lost = fraction_lost * 100
-                    extra = (
-                        "<span style='color:orange; font-weight:bold'>"
-                        "Possible driver variant – requires assessment of the % of the canonical "
-                        "protein compromised and database evidence, including downstream loss of "
-                        "function (LOF) variants"
-                        "</span>"
-                    )
+                    card_color = "🟠"
 
+                # Colored Result Card
+                st.markdown(f"""
+                <div style="padding:15px; border-radius:8px; border-left:6px solid {'#28a745' if card_color=='🟢' else '#17a2b8' if card_color=='🧬' else '#ffc107'}; background-color:#f8f9fa; margin:10px 0;">
+                    <h4>{card_color} {nmd_label}</h4>
+                    <p><strong>Impact:</strong> {impact}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if perc_lost > 0:
+                    st.progress(fraction_lost)
+                    st.caption(f"**Approx. protein lost:** {perc_lost:.1f}%")
+
+                st.markdown(extra if 'extra' in locals() else "", unsafe_allow_html=True)
+
+                # Data collection
                 assessment = "Possible driver"
                 mechanism = "Fits mechanism and spectrum of variants"
-                if "DRIVER" in extra:
+                if "DRIVER" in (extra if 'extra' in locals() else ""):
                     assessment = "DRIVER"
-                elif "Chimera‑like construct" in extra:
+                elif "Chimera" in (extra if 'extra' in locals() else ""):
                     mechanism = "Chimera‑like construct"
 
                 INPUT_DATA.append({
@@ -258,32 +265,35 @@ with tab_input:
                     "Assessment": assessment,
                     "Mechanism / driver note": mechanism,
                     "Protein impact": impact,
-                    "Extra": extra,
+                    "Extra": extra if 'extra' in locals() else "",
                 })
-
-                st.markdown(f"**NMD?:** {nmd} ({nmd_label})")
-                st.markdown(f"**Protein impact:** {impact}")
-                if "corrupted by frameshift" not in impact:
-                    st.markdown(f"**Approx. protein lost:** {fraction_lost:.2f} ({perc_lost:.1f}%)")
-                st.markdown(extra, unsafe_allow_html=True)
 
 with tab_report:
     if not INPUT_DATA:
         st.info("Paste and run variants in the 'Input' tab to generate a structured report.")
     else:
         df = pd.DataFrame(INPUT_DATA)
-        st.markdown("### Structured report (click a row to see details)")
+        st.markdown("### Structured report")
         display_df = df[[
             "Variant", "Gene", "Transcript", "NMD", "Assessment",
             "Mechanism / driver note", "Protein impact"
         ]].copy()
         st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
         st.divider()
-        st.markdown("**CSV‑style summary (for copy‑paste):**")
+        st.markdown("**CSV Summary:**")
         st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment", 
                     "Mechanism / driver note", "Protein impact"]].to_csv(index=False))
 
-# --- === GENE TRACK - AMINO ACID SCALE WITH EXONS === ---
+        csv = df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Full Report as CSV",
+            data=csv,
+            file_name="NMD_Predictor_Report.csv",
+            mime="text/csv"
+        )
+
+# --- Gene Track ---
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
@@ -308,17 +318,15 @@ if INPUT_DATA:
         st.markdown("**Protein Domains (AA positions from UniProt):**")
         st.dataframe(pd.DataFrame(domains)[["name", "start", "end"]], hide_index=True, use_container_width=True)
 
-    st.caption("⚠️ **Note:** Exon boundaries are based on NCBI RefSeq for the exact transcripts. "
-               "They are approximate AA mappings for visualisation only.")
+    st.caption("⚠️ Exon boundaries are approximate visual aids based on NCBI RefSeq for these specific transcripts.")
 
-    # Plot
+    # Plot code (same as before)
     fig, ax = plt.subplots(figsize=(14, 5.5), tight_layout=True)
     y = 0
     height = 1.0
 
     ax.barh(y, prot_len, height=height, color="#f5f5f5", edgecolor="#666", alpha=0.8)
 
-    # Exons
     exons = get_exons(st.session_state.gene_tx_key)
     for start, end, label in exons:
         ax.axvline(start, color="#444444", linestyle="--", linewidth=1.0, alpha=0.6)
@@ -326,7 +334,6 @@ if INPUT_DATA:
                 ha="center", va="center", fontsize=9, fontweight="bold", 
                 color="black", bbox=dict(facecolor="white", alpha=0.85, pad=1))
 
-    # Domains
     for d in domains:
         width = d["end"] - d["start"] + 1
         ax.barh(y, width, left=d["start"], height=height, 
@@ -335,7 +342,6 @@ if INPUT_DATA:
                 ha="center", va="bottom", fontsize=10, fontweight="bold", 
                 color="white", bbox=dict(facecolor='black', alpha=0.75, pad=2))
 
-    # Variant effect
     ax.barh(y, var_origin_aa, height=height*0.75, color="cornflowerblue", edgecolor="black", label="Intact")
     if var_origin_aa < prot_len:
         ax.barh(y, prot_len - var_origin_aa, left=var_origin_aa, height=height*0.75, 
@@ -364,6 +370,11 @@ if INPUT_DATA:
 
     ax.legend(loc="upper right", fontsize=10)
     st.pyplot(fig, use_container_width=True)
+
+# === EDUCATIONAL FACT AT BOTTOM ===
+st.markdown("---")
+fact = random.choice(EDUCATIONAL_FACTS)
+st.info(f"💡 **Did you know?** {fact}")
 
 # Footer
 st.markdown(
