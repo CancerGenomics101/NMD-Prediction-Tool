@@ -162,7 +162,7 @@ with tab_input:
     # HGVS input: smaller box, no help text, just example line
     st.markdown(
         "<small style='color:#888; font-style:italic; display:block; margin-bottom:4px;'>"
-        "Example: c.62C>G p.Ser21*"
+        "Example: c.424_425del p.Arg143Thrfs*110"
         "</small>",
         unsafe_allow_html=True,
     )
@@ -173,7 +173,7 @@ with tab_input:
     )
 
     if not input_text.strip():
-        st.info("Paste a variant in the box above (e.g., `c.62C>G p.Ser21*`).")
+        st.info("Paste a variant in the box above (e.g., `c.424_425del p.Arg143Thrfs*110`).")
     else:
         hgvs_lines = [line.strip() for line in input_text.split("\n") if line.strip()]
 
