@@ -263,18 +263,17 @@ with tab_report:
         st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment", 
                     "Mechanism / driver note", "Protein impact"]].to_csv(index=False))
 
-# --- === GENE TRACK WITH DOMAINS (labels fixed) === ---
+# --- === GENE TRACK - NOW IN AMINO ACID POSITION === ---
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
-    cds_end = 3 * prot_len
-    nmd_cutoff = current["nmd_cutoff_cdna"]
+    nmd_cutoff_aa = current["nmd_cutoff_cdna"] // 3   # Convert to AA
     
     last = INPUT_DATA[-1]
     variant_label = last["Variant"].split()[-1]
    
     codon_ptc = parse_p_ptc_position(last["Variant"].strip())
-    ptc_c_pos = 3 * codon_ptc if codon_ptc else 0
+    ptc_aa = codon_ptc if codon_ptc else 0
    
     frameshift_start_codon = None
     if "fs" in last["Variant"]:
@@ -282,7 +281,7 @@ if INPUT_DATA:
         if m_p: 
             frameshift_start_codon = int(m_p.group(1))
    
-    var_origin = 3 * frameshift_start_codon if frameshift_start_codon else ptc_c_pos
+    var_origin_aa = frameshift_start_codon if frameshift_start_codon else ptc_aa
 
     # Domain table
     domains = get_domains(st.session_state.gene_tx_key)
@@ -291,55 +290,54 @@ if INPUT_DATA:
         domain_df = pd.DataFrame(domains)
         st.dataframe(domain_df[["name", "start", "end"]], hide_index=True, use_container_width=True)
 
-    # Plot with very visible domain labels
+    # Plot - Amino Acid scale
     fig, ax = plt.subplots(figsize=(14, 5), tight_layout=True)
     y = 0
     height = 1.0
 
     # Background bar
-    ax.barh(y, cds_end, height=height, color="#f5f5f5", edgecolor="#666", alpha=0.8)
+    ax.barh(y, prot_len, height=height, color="#f5f5f5", edgecolor="#666", alpha=0.8)
 
-    # Domains + labels
+    # Domains
     for d in domains:
-        start_bp = d["start"] * 3
-        width_bp = (d["end"] - d["start"] + 1) * 3
-        ax.barh(y, width_bp, left=start_bp, height=height, 
+        width = d["end"] - d["start"] + 1
+        ax.barh(y, width, left=d["start"], height=height, 
                 color=d["color"], edgecolor="black", alpha=0.95)
-        
-        # Bold label with white background for maximum visibility
-        ax.text(start_bp + width_bp/2, y + 1.15, d["name"], 
+        ax.text(d["start"] + width/2, y + 1.15, d["name"], 
                 ha="center", va="bottom", fontsize=10, fontweight="bold", 
-                color="white", bbox=dict(facecolor='black', alpha=0.7, pad=2, edgecolor='none'))
+                color="white", bbox=dict(facecolor='black', alpha=0.7, pad=2))
 
-    # Variant bars
-    ax.barh(y, var_origin, height=height*0.75, color="cornflowerblue", edgecolor="black", label="Intact")
-    if var_origin < cds_end:
-        ax.barh(y, cds_end - var_origin, left=var_origin, height=height*0.75, 
+    # Variant effect
+    ax.barh(y, var_origin_aa, height=height*0.75, color="cornflowerblue", edgecolor="black", label="Intact")
+    if var_origin_aa < prot_len:
+        ax.barh(y, prot_len - var_origin_aa, left=var_origin_aa, height=height*0.75, 
                 color="salmon", edgecolor="black", label="Affected")
 
-    ax.set_xlim(1, max(cds_end, ptc_c_pos + 500))
+    ax.set_xlim(1, max(prot_len, ptc_aa + 100))
     ax.set_ylim(-5.5, 6)
     ax.set_yticks([])
-    ax.set_xlabel("cDNA position along transcript (bp)", fontsize=11)
+    ax.set_xlabel("Amino Acid Position", fontsize=12, fontweight="bold")
 
-    ax.text(10, 3.2, "Start", ha="left", va="bottom", fontsize=10)
-    ax.text(cds_end - 10, 3.2, "CDS End", ha="right", va="bottom", fontsize=10)
+    ax.text(5, 3.2, "Start", ha="left", va="bottom", fontsize=11)
+    ax.text(prot_len, 3.2, "End", ha="right", va="bottom", fontsize=11)
 
-    if nmd_cutoff <= cds_end:
-        ax.axvline(nmd_cutoff, color="purple", linestyle=":", linewidth=3)
-        ax.text(nmd_cutoff, -3.5, "NMD cutoff", ha="center", va="top", 
-                fontsize=10, color="purple", fontweight="bold")
+    # NMD Cutoff (in AA)
+    if nmd_cutoff_aa <= prot_len:
+        ax.axvline(nmd_cutoff_aa, color="purple", linestyle=":", linewidth=3)
+        ax.text(nmd_cutoff_aa, -3.5, f"NMD cutoff (~AA {nmd_cutoff_aa})", 
+                ha="center", va="top", fontsize=10, color="purple", fontweight="bold")
 
-    ax.annotate(variant_label, xy=(var_origin, 0.7), xytext=(var_origin, 4.0),
+    # Annotations
+    ax.annotate(variant_label, xy=(var_origin_aa, 0.7), xytext=(var_origin_aa, 4.0),
                 arrowprops=dict(arrowstyle="->", color="black", lw=2), 
                 ha="center", fontsize=11, fontweight="bold")
 
-    ax.annotate("PTC", xy=(ptc_c_pos, -1.2), xytext=(ptc_c_pos, -4.5),
+    ax.annotate("PTC", xy=(ptc_aa, -1.2), xytext=(ptc_aa, -4.5),
                 arrowprops=dict(arrowstyle="->", color="black", lw=2), 
                 fontsize=11, ha="center", fontweight="bold")
 
-    if ptc_c_pos > cds_end:
-        ax.text(cds_end + 50, -1.5, "3′ UTR extension", fontsize=10, color="#D2691E")
+    if ptc_aa > prot_len:
+        ax.text(prot_len + 10, -1.5, "Beyond protein (3′ UTR)", fontsize=10, color="#D2691E")
 
     ax.legend(loc="upper right", fontsize=10)
     st.pyplot(fig, use_container_width=True)
