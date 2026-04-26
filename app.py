@@ -340,28 +340,24 @@ if INPUT_DATA:
     cds_end = 3 * prot_len
     nmd_cutoff = current["nmd_cutoff_cdna"]
 
-    # Use the variant information
+    # Use last variant processed to drive the track
     last = INPUT_DATA[-1]
     variant_label = last["Variant"].split()[-1] # e.g. p.Ser21*
     
-    # Calculate PTC position
+    # Calculate positions
     codon_ptc = parse_p_ptc_position(last["Variant"].strip())
     ptc_c_pos = 3 * codon_ptc
-
-    # Calculate variant start
+    
+    # Frameshift start
     frameshift_start_codon = None
     if "fs" in last["Variant"]:
         m_p = re.search(r"p\.[A-Z][a-z]{2}?(\d+)", last["Variant"], re.IGNORECASE)
         if m_p: frameshift_start_codon = int(m_p.group(1))
     
-    # Define start position (var_origin)
-    if frameshift_start_codon:
-        var_origin = 3 * frameshift_start_codon
-    else:
-        var_origin = ptc_c_pos
+    var_origin = 3 * frameshift_start_codon if frameshift_start_codon else ptc_c_pos
 
     # Plot
-    fig, ax = plt.subplots(figsize=(12, 2.0), tight_layout=True)
+    fig, ax = plt.subplots(figsize=(12, 2.5), tight_layout=True)
     y = 0
     height = 1.0
 
@@ -371,26 +367,29 @@ if INPUT_DATA:
 
     # Formatting
     ax.set_xlim(1, cds_end)
-    ax.set_ylim(-3.5, 3.5) # Expanded y‑limits to prevent overlap
+    ax.set_ylim(-3.5, 3.5)
     ax.set_yticks([])
     ax.set_xlabel("cDNA position along transcript")
 
-    # Start/End markers
-    ax.axvline(1, color="black", linewidth=1.5, ymin=0.3, ymax=0.7)
-    ax.axvline(cds_end, color="black", linewidth=1.5, ymin=0.3, ymax=0.7)
-    ax.text(1, 2.6, variant_label, ha="left", va="center", fontsize=9, fontweight="bold")
-    ax.text(cds_end, 2.6, "CDS end", ha="right", va="center", fontsize=9)
+    # Start/End labels
+    ax.text(1, 2.8, "Start", ha="left", va="bottom", fontsize=9)
+    ax.text(cds_end, 2.8, "CDS end", ha="right", va="bottom", fontsize=9)
 
     # NMD Cutoff
     if nmd_cutoff <= cds_end:
         ax.axvline(nmd_cutoff, color="purple", linestyle=":", linewidth=2.5, ymin=0.1, ymax=0.9)
-        ax.text(nmd_cutoff, -1.5, "NMD cutoff", ha="center", va="top", fontsize=8, color="purple")
+        ax.text(nmd_cutoff, -1.8, "NMD cutoff", ha="center", va="top", fontsize=8, color="purple")
 
-    # PTC marker (Bottom arrow)
+    # TOP: Variant Label at origin (where blue meets salmon)
+    ax.annotate(variant_label, xy=(var_origin, 0.5), xytext=(var_origin, 2.8), 
+                arrowprops=dict(arrowstyle="->", color="black", lw=1.5),
+                ha="center", fontsize=9, fontweight="bold")
+
+    # BOTTOM: PTC label
     ax.annotate("PTC", xy=(ptc_c_pos, -0.5), xytext=(ptc_c_pos, -2.8), 
                 arrowprops=dict(arrowstyle="->", color="black", lw=1.5), fontsize=10, ha="center")
 
-    # 3' UTR visual
+    # 3' UTR visuals
     if ptc_c_pos > cds_end:
         ax.set_xlim(1, ptc_c_pos + 200)
         ax.axhspan(-0.8, -0.3, xmin=(cds_end / (ptc_c_pos + 200)), xmax=0.98, color="lightyellow", alpha=0.5)
