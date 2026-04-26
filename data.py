@@ -61,3 +61,11 @@ EXONS = {
         (293,312,"ex9"), (313,356,"ex10"), (357,393,"ex11"),
     ],
 }
+
+EDUCATIONAL_FACTS = [
+    "Nonsense-mediated decay (NMD) typically degrades transcripts with premature termination codons more than 50–55 nucleotides upstream of the last exon-exon junction.",
+    "The 'last exon rule' means truncating variants in the final exon often escape NMD and produce truncated proteins.",
+    "Tumor suppressor genes are particularly sensitive to loss-of-function variants, making accurate NMD prediction clinically important.",
+    "Frameshift variants near the C-terminus are less likely to trigger NMD than those early in the protein.",
+    "The position of a variant relative to key protein domains is often more biologically important than the exact percentage of protein lost.",
+]
