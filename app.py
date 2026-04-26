@@ -175,8 +175,8 @@ else:
         # First 100 bp warning
         if ptc_c_pos <= 100:
             st.warning(
-                "⚠️ **WARNING:** This variant occurs within the first 100 bp. "
-                "Currently this tool does not acknowledge the use of alternative transcripts. "
+                "⚠️ **WARNING:** This variant generates a PTC within the first 100 bp. "
+                "Currently, this tool does not acknowledge the use of alternative transcripts. "
                 "Use scientific judgement."
             )
 
