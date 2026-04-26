@@ -6,7 +6,7 @@ import re
 
 TRANSCRIPTS = {
     "ASXL1_NM_015338.5": (
-        "NM_015338.5",
+        "NM_01538.5",
         1669,          # c.1669 → NMD cutoff
         4623,          # CDS ≈ 3 * 1541
         1541,
@@ -114,7 +114,6 @@ def hgvs_to_ptc_c_pos(hgvs_str):
 # === STREAMLIT LAYOUT ====================================================================
 
 st.markdown("<h1>NMD Predictor V1.0</h1>", unsafe_allow_html=True)
-st.markdown("<p style='font-size:14px; color:#666;'>(HGVS input, GRCh37)</p>", unsafe_allow_html=True)
 
 st.markdown("""
 
@@ -227,7 +226,8 @@ else:
 
             extra = (
                 "<span style='color:orange; font-weight:bold'>"
-                "Chimera‑like construct generated"
+                "Chimera‑like construct generated. Possible driver – "
+                "please consider % of the canonical protein compromised and downstream loss of function (LOF) variants."
                 "</span>"
             )
 
