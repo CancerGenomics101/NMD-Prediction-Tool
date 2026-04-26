@@ -150,7 +150,7 @@ with tab_input:
                 if ptc_c_pos <= 100:
                     st.warning(
                         "⚠️ **WARNING:** This variant generates a PTC within the first 100 bp. "
-                        "Currently this tool does not acknowledge the use of alternative transcripts. "
+                        "Currently, this tool does not acknowledge the use of alternative transcripts. "
                         "Use scientific judgement."
                     )
 
