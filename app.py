@@ -134,10 +134,12 @@ You are currently using:
 (CDS ≈ {current['reference_mrna_len']} bp, no premature stop.)
 """)
 
+# HGVS input: no default value; help text shows example in grey
 input_text = st.text_area(
     "Paste HGVS variant (c. and p.):",
-    value="c.994A>G p.Trp343Alafs*39",
+    # No value=... → empty field
     height=100,
+    help="<span style='font-size:13px; color:#888; font-style:italic;'>Example: c.62C>G p.Ser21*</span>",
 )
 
 if not input_text.strip():
