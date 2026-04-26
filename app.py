@@ -268,7 +268,7 @@ with tab_input:
 
             # === COLLECT DATA FOR REPORT ===================================================
             assessment = "Possible driver"
-            mechanism = "NMD predicted - fits mechanism and spectrum of variants"
+            mechanism = "Fits mechanism and spectrum of variants"
 
             if "DRIVER" in extra:
                 assessment = "DRIVER"
