@@ -312,7 +312,7 @@ with tab_report:
         st.markdown("**CSV‑style summary (for copy‑paste):**")
         st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment", "Mechanism / driver note", "Protein impact"]].to_csv(index=False))
 
-# --- === GENE TRACK WITH NMD CUTOFF + DOMAINS (prettier version) === ---
+# --- === GENE TRACK WITH NMD CUTOFF + DOMAINS (fixed visibility) === ---
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
@@ -342,10 +342,10 @@ if INPUT_DATA:
         domain_df = pd.DataFrame(domains)
         st.dataframe(domain_df[["name", "start", "end"]], hide_index=True, use_container_width=True)
 
-    # Plot (prettier)
-    fig, ax = plt.subplots(figsize=(14, 3.5), tight_layout=True)
+    # Plot - taller with better spacing so domains are fully visible
+    fig, ax = plt.subplots(figsize=(14, 4.5), tight_layout=True)
     y = 0
-    height = 1.0
+    height = 0.9
 
     # Light background full-length bar
     ax.barh(y, cds_end, height=height, color="#eeeeee", edgecolor="#444444", alpha=0.7)
@@ -355,42 +355,43 @@ if INPUT_DATA:
         start_bp = d["start"] * 3
         width_bp = (d["end"] - d["start"] + 1) * 3
         ax.barh(y, width_bp, left=start_bp, height=height, 
-                color=d["color"], edgecolor="black", alpha=0.9)
-        ax.text(start_bp + width_bp/2, y + 0.55, d["name"], 
-                ha="center", va="center", fontsize=9, fontweight="bold", color="white")
+                color=d["color"], edgecolor="black", alpha=0.92)
+        # Domain label
+        ax.text(start_bp + width_bp/2, y + 0.85, d["name"], 
+                ha="center", va="center", fontsize=9.5, fontweight="bold", color="white")
 
-    # Variant effect
-    ax.barh(y, var_origin, height=height*0.65, color="cornflowerblue", edgecolor="black", label="Intact")
+    # Variant effect bars
+    ax.barh(y, var_origin, height=height*0.7, color="cornflowerblue", edgecolor="black", label="Intact / Retained")
     if var_origin < cds_end:
-        ax.barh(y, cds_end - var_origin, left=var_origin, height=height*0.65, 
-                color="salmon", edgecolor="black", label="Affected")
+        ax.barh(y, cds_end - var_origin, left=var_origin, height=height*0.7, 
+                color="salmon", edgecolor="black", label="Lost / Affected")
 
     # Formatting
-    ax.set_xlim(1, max(cds_end, ptc_c_pos + 300))
-    ax.set_ylim(-4, 4)
+    ax.set_xlim(1, max(cds_end, ptc_c_pos + 400))
+    ax.set_ylim(-5, 5)
     ax.set_yticks([])
     ax.set_xlabel("cDNA position along transcript (bp)", fontsize=11)
 
-    ax.text(5, 2.6, "Start", ha="left", va="bottom", fontsize=10)
-    ax.text(cds_end, 2.6, "CDS End", ha="right", va="bottom", fontsize=10)
+    ax.text(5, 3.0, "Start", ha="left", va="bottom", fontsize=10)
+    ax.text(cds_end, 3.0, "CDS End", ha="right", va="bottom", fontsize=10)
 
     # NMD Cutoff
     if nmd_cutoff <= cds_end:
         ax.axvline(nmd_cutoff, color="purple", linestyle=":", linewidth=2.8)
-        ax.text(nmd_cutoff, -2.2, "NMD cutoff", ha="center", va="top", 
+        ax.text(nmd_cutoff, -3.0, "NMD cutoff", ha="center", va="top", 
                 fontsize=10, color="purple", fontweight="bold")
 
     # Variant annotations
-    ax.annotate(variant_label, xy=(var_origin, 0.4), xytext=(var_origin, 2.9),
+    ax.annotate(variant_label, xy=(var_origin, 0.6), xytext=(var_origin, 3.4),
                 arrowprops=dict(arrowstyle="->", color="black", lw=1.8),
                 ha="center", fontsize=11, fontweight="bold")
 
-    ax.annotate("PTC", xy=(ptc_c_pos, -0.6), xytext=(ptc_c_pos, -3.0),
+    ax.annotate("PTC", xy=(ptc_c_pos, -1.0), xytext=(ptc_c_pos, -4.0),
                 arrowprops=dict(arrowstyle="->", color="black", lw=1.8), 
                 fontsize=11, ha="center", fontweight="bold")
 
     if ptc_c_pos > cds_end:
-        ax.text(cds_end + 30, -0.6, "3′ UTR", fontsize=10, color="#D2691E", ha="left")
+        ax.text(cds_end + 40, -1.2, "3′ UTR extension", fontsize=10, color="#D2691E", ha="left")
 
     ax.legend(loc="upper right", fontsize=10)
     st.pyplot(fig, use_container_width=True)
