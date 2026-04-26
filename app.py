@@ -117,7 +117,7 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     return ptc_c_pos, None
 
 # === STREAMLIT LAYOUT ====================================================================
-st.markdown("<h1>NMD Predictor V1.0</h1>", unsafe_allow_html=True)
+st.markdown("<h1>NMD Predictor v1.0</h1>", unsafe_allow_html=True)
 
 tab_input, tab_report = st.tabs(["Input (Tool)", "Report (Structured Output)"])
 
