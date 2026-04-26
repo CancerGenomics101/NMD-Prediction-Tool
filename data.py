@@ -1,5 +1,6 @@
 # data.py - NMD Predictor Gene Library
 # All gene-specific data lives here, requires last c. position for NMD, final coding nucleotide c. position, and final coding AA p. position
+# Protein domains are a static pull from UniProt matched to the given transcript and approximate exon boundaries estimated from NCBI RefSeq for visual aid only
 
 TRANSCRIPTS = {
     "ASXL1_NM_015338.5": (
