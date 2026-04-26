@@ -29,9 +29,9 @@ TRANSCRIPTS = {
 # === PROTEIN DOMAINS =====================================================================
 PROTEIN_DOMAINS = {
     "ASXL1_NM_015338.5": [
-        {"name": "HARE-HTH", "start": 1,   "end": 150,  "color": "#4CAF50"},
-        {"name": "DEUBAD",   "start": 300, "end": 550,  "color": "#2196F3"},
-        {"name": "PHD",      "start": 1400,"end": 1541, "color": "#FF9800"},
+        {"name": "HARE-HTH", "start": 11,  "end": 86,   "color": "#4CAF50"},
+        {"name": "DEUBAD",   "start": 255, "end": 364,  "color": "#2196F3"},
+        {"name": "PHD",      "start": 1503,"end": 1540, "color": "#FF9800"},
     ],
     "TET2_NM_001127208.2": [
         {"name": "Cys-rich", "start": 1130, "end": 1300, "color": "#9C27B0"},
