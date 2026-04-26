@@ -25,6 +25,19 @@ TRANSCRIPTS = {
     ),
 }
 
+# === PROTEIN DOMAINS (curated from UniProt) =============================================
+PROTEIN_DOMAINS = {
+    "ASXL1_NM_015338.5": [
+        {"name": "HARE-HTH", "start": 1,   "end": 150,  "color": "#4CAF50"},
+        {"name": "DEUBAD",   "start": 300, "end": 550,  "color": "#2196F3"},
+        {"name": "PHD",      "start": 1400,"end": 1541, "color": "#FF9800"},
+    ],
+    "TET2_NM_001127208.2": [
+        {"name": "Cys-rich", "start": 1130, "end": 1300, "color": "#9C27B0"},
+        {"name": "Tet_JBP",  "start": 1300, "end": 2002, "color": "#FF5722"},
+    ],
+}
+
 def get_params(gene_tx_key):
     tx, nmd_cut, mrna_len, prot_len = TRANSCRIPTS[gene_tx_key]
     return {
@@ -35,6 +48,9 @@ def get_params(gene_tx_key):
         "reference_mrna_len": mrna_len, # CDS for % protein
         "protein_length_aa": prot_len,
     }
+
+def get_domains(gene_tx_key):
+    return PROTEIN_DOMAINS.get(gene_tx_key, [])
 
 # === HGVS PARSING ========================================================================
 def extract_c_pos_from_c_hgvs(hgvs_c):
@@ -173,8 +189,8 @@ with tab_input:
                 # First 100 bp warning
                 if ptc_c_pos <= 100:
                     st.warning(
-                        "⚠️ **WARNING:** This variant generates a PTC within the first 100 bp. "
-                        "Currently, this tool does not acknowledge the use of alternative transcripts. "
+                        "⚠️ **WARNING:** This variant occurs within the first 100 bp. "
+                        "Currently this tool does not acknowledge the use of alternative transcripts. "
                         "Use scientific judgement."
                     )
 
@@ -296,12 +312,13 @@ with tab_report:
         st.markdown("**CSV‑style summary (for copy‑paste):**")
         st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment", "Mechanism / driver note", "Protein impact"]].to_csv(index=False))
 
-# --- === GENE TRACK WITH NMD CUTOFF AT THE BOTTOM OF THE PAGE === ---
+# --- === GENE TRACK WITH NMD CUTOFF + DOMAINS (prettier version) === ---
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
     cds_end = 3 * prot_len
     nmd_cutoff = current["nmd_cutoff_cdna"]
+    
     # Use last variant processed to drive the track
     last = INPUT_DATA[-1]
     variant_label = last["Variant"].split()[-1] # e.g. p.Ser21*
@@ -317,40 +334,68 @@ if INPUT_DATA:
         if m_p: frameshift_start_codon = int(m_p.group(1))
    
     var_origin = 3 * frameshift_start_codon if frameshift_start_codon else ptc_c_pos
-    # Plot
-    fig, ax = plt.subplots(figsize=(12, 2.5), tight_layout=True)
+
+    # Domain summary table
+    domains = get_domains(st.session_state.gene_tx_key)
+    if domains:
+        st.markdown("**Protein Domains (AA positions from UniProt):**")
+        domain_df = pd.DataFrame(domains)
+        st.dataframe(domain_df[["name", "start", "end"]], hide_index=True, use_container_width=True)
+
+    # Plot (prettier)
+    fig, ax = plt.subplots(figsize=(14, 3.5), tight_layout=True)
     y = 0
     height = 1.0
-    # Bars: Blue (intact), Salmon (compromised)
-    ax.barh(y, var_origin, height=height, color="cornflowerblue", edgecolor="black")
-    ax.barh(y, cds_end - var_origin, left=var_origin, height=height, color="salmon", edgecolor="black")
+
+    # Light background full-length bar
+    ax.barh(y, cds_end, height=height, color="#eeeeee", edgecolor="#444444", alpha=0.7)
+
+    # Draw domains
+    for d in domains:
+        start_bp = d["start"] * 3
+        width_bp = (d["end"] - d["start"] + 1) * 3
+        ax.barh(y, width_bp, left=start_bp, height=height, 
+                color=d["color"], edgecolor="black", alpha=0.9)
+        ax.text(start_bp + width_bp/2, y + 0.55, d["name"], 
+                ha="center", va="center", fontsize=9, fontweight="bold", color="white")
+
+    # Variant effect
+    ax.barh(y, var_origin, height=height*0.65, color="cornflowerblue", edgecolor="black", label="Intact")
+    if var_origin < cds_end:
+        ax.barh(y, cds_end - var_origin, left=var_origin, height=height*0.65, 
+                color="salmon", edgecolor="black", label="Affected")
+
     # Formatting
-    ax.set_xlim(1, cds_end)
-    ax.set_ylim(-3.5, 3.5)
+    ax.set_xlim(1, max(cds_end, ptc_c_pos + 300))
+    ax.set_ylim(-4, 4)
     ax.set_yticks([])
-    ax.set_xlabel("cDNA position along transcript")
-    # Start/End labels
-    ax.text(1, 2.8, "Start", ha="left", va="bottom", fontsize=9)
-    ax.text(cds_end, 2.8, "CDS end", ha="right", va="bottom", fontsize=9)
+    ax.set_xlabel("cDNA position along transcript (bp)", fontsize=11)
+
+    ax.text(5, 2.6, "Start", ha="left", va="bottom", fontsize=10)
+    ax.text(cds_end, 2.6, "CDS End", ha="right", va="bottom", fontsize=10)
+
     # NMD Cutoff
     if nmd_cutoff <= cds_end:
-        ax.axvline(nmd_cutoff, color="purple", linestyle=":", linewidth=2.5, ymin=0.1, ymax=0.9)
-        ax.text(nmd_cutoff, -1.8, "NMD cutoff", ha="center", va="top", fontsize=8, color="purple")
-    # TOP: Variant Label at origin (where blue meets salmon)
-    ax.annotate(variant_label, xy=(var_origin, 0.5), xytext=(var_origin, 2.8),
-                arrowprops=dict(arrowstyle="->", color="black", lw=1.5),
-                ha="center", fontsize=9, fontweight="bold")
-    # BOTTOM: PTC label
-    ax.annotate("PTC", xy=(ptc_c_pos, -0.5), xytext=(ptc_c_pos, -2.8),
-                arrowprops=dict(arrowstyle="->", color="black", lw=1.5), fontsize=10, ha="center")
-    # 3' UTR visuals
+        ax.axvline(nmd_cutoff, color="purple", linestyle=":", linewidth=2.8)
+        ax.text(nmd_cutoff, -2.2, "NMD cutoff", ha="center", va="top", 
+                fontsize=10, color="purple", fontweight="bold")
+
+    # Variant annotations
+    ax.annotate(variant_label, xy=(var_origin, 0.4), xytext=(var_origin, 2.9),
+                arrowprops=dict(arrowstyle="->", color="black", lw=1.8),
+                ha="center", fontsize=11, fontweight="bold")
+
+    ax.annotate("PTC", xy=(ptc_c_pos, -0.6), xytext=(ptc_c_pos, -3.0),
+                arrowprops=dict(arrowstyle="->", color="black", lw=1.8), 
+                fontsize=11, ha="center", fontweight="bold")
+
     if ptc_c_pos > cds_end:
-        ax.set_xlim(1, ptc_c_pos + 200)
-        ax.axhspan(-0.8, -0.3, xmin=(cds_end / (ptc_c_pos + 200)), xmax=0.98, color="lightyellow", alpha=0.5)
-        ax.text(cds_end + 10, -0.55, "3′ UTR", fontsize=8, color="black", ha="left")
+        ax.text(cds_end + 30, -0.6, "3′ UTR", fontsize=10, color="#D2691E", ha="left")
+
+    ax.legend(loc="upper right", fontsize=10)
     st.pyplot(fig, use_container_width=True)
 
-# Footer (copyright notice) - always visible
+# Footer (copyright notice)
 st.markdown(
     "<p style='font-size:12px; color:#888; text-align:center; margin-top:20px;'>"
     "© 2026 Ashley Sunderland • NMD Predictor (educational use only, no reproduction without permission)."
