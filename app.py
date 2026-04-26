@@ -140,7 +140,7 @@ with tab_input:
     This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
     """, unsafe_allow_html=True)
 
-    # === DROPDOWN (Always visible) ===
+     # === DROPDOWN (Always visible) ===
     selected = st.selectbox(
         "Select gene and transcript:",
         options=list(TRANSCRIPTS.keys()),
@@ -150,21 +150,21 @@ with tab_input:
         key="gene_tx_key",
     )
 
-    # === HIDE EVERYTHING UNTIL SELECTION ===
+ # === HIDE EVERYTHING UNTIL SELECTION ===
     if selected is None:
         st.info("Please select a transcript from the dropdown to start.")
     else:
-        # EVERYTHING BELOW IS INDENTED BY 4 SPACES
+        # EVERYTHING THAT USES 'current' IS INDENTED UNDER HERE
         current = get_params(selected)
 
     st.markdown(f"""
-    You are currently using:
-    - **Gene:** {current['gene']}  
-    - **Transcript:** {current['transcript']}  
-    - **NMD cutoff:** cDNA position ≤ {current['nmd_cutoff_cdna']} → NMD predicted  
-    - **Protein length:** {current['protein_length_aa']} aa  
-    (CDS ≈ {current['reference_mrna_len']} bp, no premature stop.)
-    """)
+        You are currently using:
+        - **Gene:** {current['gene']}  
+        - **Transcript:** {current['transcript']}  
+        - **NMD cutoff:** cDNA position ≤ {current['nmd_cutoff_cdna']} → NMD predicted  
+        - **Protein length:** {current['protein_length_aa']} aa  
+        (CDS ≈ {current['reference_mrna_len']} bp, no premature stop.)
+        """)
 
     # HGVS input: smaller box, no help text, just example line
     st.markdown(
