@@ -45,7 +45,7 @@ def get_params(gene_tx_key):
         "gene": gene_tx_key.split("_")[0],
         "transcript": tx,
         "nmd_cutoff_cdna": nmd_cut,
-        "reference_mrna_len": mrna_len, # CDS for % protein
+        "reference_mrna_len": mrna_len,
         "protein_length_aa": prot_len,
     }
 
@@ -54,33 +54,16 @@ def get_domains(gene_tx_key):
 
 # === HGVS PARSING ========================================================================
 def extract_c_pos_from_c_hgvs(hgvs_c):
-    """
-    Extract the first cDNA position from c. strings:
-      - c.1234A>G
-      - c.245_247delinsTGA
-      - c.234_235del
-      - c.234_235insA
-      - c.234_235dup
-    """
     m = re.search(r"c\.(\d+)", hgvs_c)
     if m:
         return int(m.group(1))
     return None
 
 def parse_p_ptc_position(hgvs_p):
-    """
-    Given p. text, return the PTC codon number.
-    Supports:
-      - p.Ser156* / p.Ser156Ter
-      - p.Trp343Alafs*39, p.Trp343fs*39, p.Arg78fs*50, etc.
-    """
     hgvs_p = hgvs_p.strip()
-    # Case 1: simple nonsense (p.Ser156* or p.Ser156Ter)
     m = re.search(r"p\.[A-Z][a-z]{2}(\d+)(?:\*|Ter)", hgvs_p, re.IGNORECASE)
     if m:
-        aa_stop = int(m.group(1))
-        return aa_stop
-    # Case 2: frameshift (p.Trp343Alafs*39, p.Trp343fs*39, p.Arg78fs*50, etc.)
+        return int(m.group(1))
     m = re.search(
         r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
         hgvs_p,
@@ -88,19 +71,14 @@ def parse_p_ptc_position(hgvs_p):
     )
     if m:
         aa_start = int(m.group(1))
-        n_aa_new = int(m.group(3)) # the *39 or *60 number
-        ptc_codon = aa_start + n_aa_new - 1
-        return ptc_codon
+        n_aa_new = int(m.group(3))
+        return aa_start + n_aa_new - 1
     return None
 
 def hgvs_to_ptc_c_pos(hgvs_str):
-    """
-    From HGVS‑style text (c. + p.), return the PTC cDNA position.
-    """
     hgvs_str = hgvs_str.strip()
     if not hgvs_str:
         return None, "Empty string"
-    # Extract c. part (flexible: del/delins/ins/dup)
     c_match = re.search(r"c\.\d+.*", hgvs_str, re.IGNORECASE)
     if not c_match:
         return None, "No c. part found"
@@ -108,7 +86,6 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     c_start = extract_c_pos_from_c_hgvs(c_str)
     if c_start is None:
         return None, "Failed to parse c. position"
-    # Extract p. part
     p_match = re.search(r"p\.[^ ]*", hgvs_str, re.IGNORECASE)
     if not p_match:
         return None, "No p. part found"
@@ -116,14 +93,12 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     ptc_codon = parse_p_ptc_position(p_str)
     if ptc_codon is None:
         return None, "Failed to parse p. frameshift/stop"
-    # codon → cDNA (first base of codon)
     ptc_c_pos = 3 * ptc_codon
     return ptc_c_pos, None
 
 # === STREAMLIT LAYOUT ====================================================================
 st.markdown("<h1>NMD Predictor V1.0</h1>", unsafe_allow_html=True)
 
-# Create two tabs: Input and Report
 tab_input, tab_report = st.tabs(["Input (Tool)", "Report (Structured Output)"])
 
 INPUT_DATA = []
@@ -136,13 +111,12 @@ with tab_input:
     This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
     """, unsafe_allow_html=True)
 
-    # Simple format: ASXL1_NM_015338.5 → ASXL1 / NM / 015338.5
     gene_tx_key = st.selectbox(
         "Select gene and transcript:",
         options=list(TRANSCRIPTS.keys()),
         format_func=lambda x: x.replace("_", " / "),
         placeholder="Please select a gene and transcript",
-        index=None,                    # Makes dropdown blank on load
+        index=None,
         key="gene_tx_key",
     )
 
@@ -159,7 +133,6 @@ with tab_input:
         (CDS ≈ {current['reference_mrna_len']} bp, no premature stop.)
         """)
 
-        # HGVS input: smaller box, no help text, just example line
         st.markdown(
             "<small style='color:#888; font-style:italic; display:block; margin-bottom:4px;'>"
             "Example: c.424_425del p.Arg143Thrfs*110"
@@ -169,7 +142,7 @@ with tab_input:
 
         input_text = st.text_area(
             "Paste HGVS variant (c. and p.):",
-            height=60, # small height
+            height=60,
         )
 
         if not input_text.strip():
@@ -186,7 +159,6 @@ with tab_input:
                 st.write(f"**PTC codon:** {ptc_c_pos // 3}")
                 st.write(f"**PTC cDNA position:** `c.{ptc_c_pos}`")
 
-                # First 100 bp warning
                 if ptc_c_pos <= 100:
                     st.warning(
                         "⚠️ **WARNING:** This variant occurs within the first 100 bp. "
@@ -194,12 +166,10 @@ with tab_input:
                         "Use scientific judgement."
                     )
 
-                # NMD vs truncated vs UTR‑extension
-                cds_len = current["reference_mrna_len"] # ≈ CDS length
+                cds_len = current["reference_mrna_len"]
                 prot_len = current["protein_length_aa"]
                 cds_end = 3 * prot_len
 
-                # Detect frameshift start codon if possible
                 frameshift_start_codon = None
                 if "fs" in line:
                     m_p = re.search(
@@ -211,7 +181,6 @@ with tab_input:
                         frameshift_start_codon = int(m_p.group(1))
 
                 if ptc_c_pos <= current["nmd_cutoff_cdna"]:
-                    # NMD → 100% lost
                     nmd = "YES"
                     nmd_label = "NMD predicted"
                     impact = "Full loss (NMD) – 100% of protein lost"
@@ -219,22 +188,17 @@ with tab_input:
                     perc_lost = 100.0
                     extra = "<span style='color:green; font-weight:bold'>DRIVER</span>"
                 elif ptc_c_pos > cds_end:
-                    # 3′ UTR PTC → chimera‑like
                     nmd = "NO"
                     nmd_label = "Extended / chimera‑like"
                     impact = "Extended protein (3′ UTR PTC)"
                     if frameshift_start_codon is not None:
-                        fraction_corrupted = 1.0 - (frameshift_start_codon - 1) / prot_len
-                        fraction_corrupted = max(0.0, fraction_corrupted)
-                        perc_corrupted = fraction_corrupted * 100
-                        perc_text = f"{perc_corrupted:.1f}%"
+                        fraction_corrupted = max(0.0, 1.0 - (frameshift_start_codon - 1) / prot_len)
+                        perc_text = f"{fraction_corrupted*100:.1f}%"
                         impact += f" – {perc_text} of canonical protein corrupted by frameshift"
                     else:
                         ptc_codon = ptc_c_pos // 3
-                        fraction_corrupted = 1.0 - (ptc_codon - 1) / prot_len
-                        fraction_corrupted = max(0.0, fraction_corrupted)
-                        perc_corrupted = fraction_corrupted * 100
-                        perc_text = f"{perc_corrupted:.1f}%"
+                        fraction_corrupted = max(0.0, 1.0 - (ptc_codon - 1) / prot_len)
+                        perc_text = f"{fraction_corrupted*100:.1f}%"
                         impact += f" – {perc_text} of canonical protein corrupted by frameshift"
                     extra = (
                         "<span style='color:orange; font-weight:bold'>"
@@ -243,13 +207,11 @@ with tab_input:
                         "</span>"
                     )
                 else:
-                    # Truncated protein
                     nmd = "NO"
                     nmd_label = "Truncated protein"
                     impact = "Truncated protein"
                     ratio = ptc_c_pos / cds_len
-                    fraction_lost = 1.0 - ratio
-                    fraction_lost = max(0.0, fraction_lost)
+                    fraction_lost = max(0.0, 1.0 - ratio)
                     perc_lost = fraction_lost * 100
                     extra = (
                         "<span style='color:orange; font-weight:bold'>"
@@ -259,7 +221,6 @@ with tab_input:
                         "</span>"
                     )
 
-                # === COLLECT DATA FOR REPORT ===================================================
                 assessment = "Possible driver"
                 mechanism = "Fits mechanism and spectrum of variants"
                 if "DRIVER" in extra:
@@ -280,13 +241,9 @@ with tab_input:
                     "Extra": extra,
                 })
 
-                # === SHOW IN INTERACTIVE TAB (immediately visible, no expander) =============
                 st.markdown(f"**NMD?:** {nmd} ({nmd_label})")
                 st.markdown(f"**Protein impact:** {impact}")
-                if "corrupted by frameshift" in impact:
-                    # % already in impact text
-                    pass
-                else:
+                if "corrupted by frameshift" not in impact:
                     st.markdown(f"**Approx. protein lost:** {fraction_lost:.2f} ({perc_lost:.1f}%)")
                 st.markdown(extra, unsafe_allow_html=True)
 
@@ -296,107 +253,98 @@ with tab_report:
     else:
         df = pd.DataFrame(INPUT_DATA)
         st.markdown("### Structured report (click a row to see details)")
-        # Clean view for the table
         display_df = df[[
-            "Variant",
-            "Gene",
-            "Transcript",
-            "NMD",
-            "Assessment",
-            "Mechanism / driver note",
-            "Protein impact",
+            "Variant", "Gene", "Transcript", "NMD", "Assessment",
+            "Mechanism / driver note", "Protein impact"
         ]].copy()
         st.dataframe(display_df, use_container_width=True, hide_index=True)
         st.divider()
-        # Simple CSV‑style block you can copy‑paste into Excel / paper
         st.markdown("**CSV‑style summary (for copy‑paste):**")
-        st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment", "Mechanism / driver note", "Protein impact"]].to_csv(index=False))
+        st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment", 
+                    "Mechanism / driver note", "Protein impact"]].to_csv(index=False))
 
-# --- === GENE TRACK WITH NMD CUTOFF + DOMAINS (fixed visibility) === ---
+# --- === GENE TRACK WITH DOMAINS (labels fixed) === ---
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
     cds_end = 3 * prot_len
     nmd_cutoff = current["nmd_cutoff_cdna"]
     
-    # Use last variant processed to drive the track
     last = INPUT_DATA[-1]
-    variant_label = last["Variant"].split()[-1] # e.g. p.Ser21*
+    variant_label = last["Variant"].split()[-1]
    
-    # Calculate positions
     codon_ptc = parse_p_ptc_position(last["Variant"].strip())
-    ptc_c_pos = 3 * codon_ptc
+    ptc_c_pos = 3 * codon_ptc if codon_ptc else 0
    
-    # Frameshift start
     frameshift_start_codon = None
     if "fs" in last["Variant"]:
         m_p = re.search(r"p\.[A-Z][a-z]{2}?(\d+)", last["Variant"], re.IGNORECASE)
-        if m_p: frameshift_start_codon = int(m_p.group(1))
+        if m_p: 
+            frameshift_start_codon = int(m_p.group(1))
    
     var_origin = 3 * frameshift_start_codon if frameshift_start_codon else ptc_c_pos
 
-    # Domain summary table
+    # Domain table
     domains = get_domains(st.session_state.gene_tx_key)
     if domains:
         st.markdown("**Protein Domains (AA positions from UniProt):**")
         domain_df = pd.DataFrame(domains)
         st.dataframe(domain_df[["name", "start", "end"]], hide_index=True, use_container_width=True)
 
-    # Plot - taller with better spacing so domains are fully visible
-    fig, ax = plt.subplots(figsize=(14, 4.5), tight_layout=True)
+    # Plot with very visible domain labels
+    fig, ax = plt.subplots(figsize=(14, 5), tight_layout=True)
     y = 0
-    height = 0.9
+    height = 1.0
 
-    # Light background full-length bar
-    ax.barh(y, cds_end, height=height, color="#eeeeee", edgecolor="#444444", alpha=0.7)
+    # Background bar
+    ax.barh(y, cds_end, height=height, color="#f5f5f5", edgecolor="#666", alpha=0.8)
 
-    # Draw domains
+    # Domains + labels
     for d in domains:
         start_bp = d["start"] * 3
         width_bp = (d["end"] - d["start"] + 1) * 3
         ax.barh(y, width_bp, left=start_bp, height=height, 
-                color=d["color"], edgecolor="black", alpha=0.92)
-        # Domain label
-        ax.text(start_bp + width_bp/2, y + 0.85, d["name"], 
-                ha="center", va="center", fontsize=9.5, fontweight="bold", color="white")
+                color=d["color"], edgecolor="black", alpha=0.95)
+        
+        # Bold label with white background for maximum visibility
+        ax.text(start_bp + width_bp/2, y + 1.15, d["name"], 
+                ha="center", va="bottom", fontsize=10, fontweight="bold", 
+                color="white", bbox=dict(facecolor='black', alpha=0.7, pad=2, edgecolor='none'))
 
-    # Variant effect bars
-    ax.barh(y, var_origin, height=height*0.7, color="cornflowerblue", edgecolor="black", label="Intact / Retained")
+    # Variant bars
+    ax.barh(y, var_origin, height=height*0.75, color="cornflowerblue", edgecolor="black", label="Intact")
     if var_origin < cds_end:
-        ax.barh(y, cds_end - var_origin, left=var_origin, height=height*0.7, 
-                color="salmon", edgecolor="black", label="Lost / Affected")
+        ax.barh(y, cds_end - var_origin, left=var_origin, height=height*0.75, 
+                color="salmon", edgecolor="black", label="Affected")
 
-    # Formatting
-    ax.set_xlim(1, max(cds_end, ptc_c_pos + 400))
-    ax.set_ylim(-5, 5)
+    ax.set_xlim(1, max(cds_end, ptc_c_pos + 500))
+    ax.set_ylim(-5.5, 6)
     ax.set_yticks([])
     ax.set_xlabel("cDNA position along transcript (bp)", fontsize=11)
 
-    ax.text(5, 3.0, "Start", ha="left", va="bottom", fontsize=10)
-    ax.text(cds_end, 3.0, "CDS End", ha="right", va="bottom", fontsize=10)
+    ax.text(10, 3.2, "Start", ha="left", va="bottom", fontsize=10)
+    ax.text(cds_end - 10, 3.2, "CDS End", ha="right", va="bottom", fontsize=10)
 
-    # NMD Cutoff
     if nmd_cutoff <= cds_end:
-        ax.axvline(nmd_cutoff, color="purple", linestyle=":", linewidth=2.8)
-        ax.text(nmd_cutoff, -3.0, "NMD cutoff", ha="center", va="top", 
+        ax.axvline(nmd_cutoff, color="purple", linestyle=":", linewidth=3)
+        ax.text(nmd_cutoff, -3.5, "NMD cutoff", ha="center", va="top", 
                 fontsize=10, color="purple", fontweight="bold")
 
-    # Variant annotations
-    ax.annotate(variant_label, xy=(var_origin, 0.6), xytext=(var_origin, 3.4),
-                arrowprops=dict(arrowstyle="->", color="black", lw=1.8),
+    ax.annotate(variant_label, xy=(var_origin, 0.7), xytext=(var_origin, 4.0),
+                arrowprops=dict(arrowstyle="->", color="black", lw=2), 
                 ha="center", fontsize=11, fontweight="bold")
 
-    ax.annotate("PTC", xy=(ptc_c_pos, -1.0), xytext=(ptc_c_pos, -4.0),
-                arrowprops=dict(arrowstyle="->", color="black", lw=1.8), 
+    ax.annotate("PTC", xy=(ptc_c_pos, -1.2), xytext=(ptc_c_pos, -4.5),
+                arrowprops=dict(arrowstyle="->", color="black", lw=2), 
                 fontsize=11, ha="center", fontweight="bold")
 
     if ptc_c_pos > cds_end:
-        ax.text(cds_end + 40, -1.2, "3′ UTR extension", fontsize=10, color="#D2691E", ha="left")
+        ax.text(cds_end + 50, -1.5, "3′ UTR extension", fontsize=10, color="#D2691E")
 
     ax.legend(loc="upper right", fontsize=10)
     st.pyplot(fig, use_container_width=True)
 
-# Footer (copyright notice)
+# Footer
 st.markdown(
     "<p style='font-size:12px; color:#888; text-align:center; margin-top:20px;'>"
     "© 2026 Ashley Sunderland • NMD Predictor (educational use only, no reproduction without permission)."
