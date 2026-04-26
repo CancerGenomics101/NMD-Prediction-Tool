@@ -338,7 +338,7 @@ if INPUT_DATA:
 
     domains = get_domains(st.session_state.gene_tx_key)
     if domains:
-        st.markdown("**Protein Domains (AA positions from UniProt):**")
+        st.markdown("**Protein Domains (Gold standard curated AA positions from UniProt):**")
         st.dataframe(pd.DataFrame(domains)[["name", "start", "end"]], hide_index=True, use_container_width=True)
 
     st.caption("⚠️ Exon boundaries are approximate visual aids based on NCBI RefSeq for these specific transcripts.")
