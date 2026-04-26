@@ -273,7 +273,7 @@ with tab_input:
             if "DRIVER" in extra:
                 assessment = "DRIVER"
             elif "Chimera‑like construct" in extra:
-                mechanism = "Chimera‑like construct / possible gain‑of‑function"
+                mechanism = "Chimera‑like construct"
 
             INPUT_DATA.append({
                 "Variant": line,
