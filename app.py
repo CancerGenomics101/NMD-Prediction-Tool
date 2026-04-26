@@ -3,6 +3,14 @@ import re
 import pandas as pd
 
 
+# === Configure page layout (full width) ==================================================
+
+st.set_page_config(
+    page_title="NMD Predictor V1.0",
+    layout="wide",
+)
+
+
 # === TRANSCRIPT DATABASE ==================================================================
 
 TRANSCRIPTS = {
@@ -115,10 +123,9 @@ def hgvs_to_ptc_c_pos(hgvs_str):
 # === STREAMLIT LAYOUT ====================================================================
 
 st.markdown("<h1>NMD Predictor V1.0</h1>", unsafe_allow_html=True)
-st.markdown("<p style='font-size:14px; color:#555;'>Interactive NMD and frameshift impact predictor for ASXL1 and TET2.</p>", unsafe_allow_html=True)
 
 # Create two tabs: Input and Report
-tab_input, tab_report = st.tabs(["Input (Interactive Tool)", "Report (Structured Output)"])
+tab_input, tab_report = st.tabs(["Input (Tool)", "Report (Structured Output)"])
 
 INPUT_DATA = []
 
@@ -127,7 +134,7 @@ with tab_input:
     st.markdown("""
 
     **Ownership and use notice:**  
-    This NMD Predictor is an in‑house tool developed by Ashley Sunderland.  
+    This NMD Predictor is an in‑house tool developed by **Ashley Sunderland**.  
     You may use it for internal educational and analytical purposes, but reproduction, redistribution, or commercial use without prior written permission is not permitted.  
     This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
     """, unsafe_allow_html=True)
@@ -150,7 +157,7 @@ with tab_input:
     (CDS ≈ {current['reference_mrna_len']} bp, no premature stop.)
     """)
 
-    # HGVS input: empty field, with example text below
+    # HGVS input: smaller box, no help text, just example line
     st.markdown(
         "<small style='color:#888; font-style:italic; display:block; margin-bottom:4px;'>"
         "Example: c.62C>G p.Ser21*"
@@ -160,8 +167,7 @@ with tab_input:
 
     input_text = st.text_area(
         "Paste HGVS variant (c. and p.):",
-        height=140,
-        help="You can paste multiple variants (one per line).",
+        height=60,  # small height
     )
 
     if not input_text.strip():
@@ -268,7 +274,6 @@ with tab_input:
                 assessment = "DRIVER"
             elif "Chimera‑like construct" in extra:
                 mechanism = "Chimera‑like construct / possible gain‑of‑function"
-            # For truncated / others, mechanism stays as your driver‑assessment text
 
             INPUT_DATA.append({
                 "Variant": line,
@@ -283,16 +288,17 @@ with tab_input:
                 "Extra": extra,
             })
 
-            # === SHOW IN INTERACTIVE TAB ================================================
+            # === SHOW IN INTERACTIVE TAB (immediately visible, no expander) =============
             st.markdown(f"**NMD?:** {nmd} ({nmd_label})")
-            with st.expander("Prediction details"):
-                st.markdown(f"**Protein impact:** {impact}")
-                if "corrupted by frameshift" in impact:
-                    # % already in impact text
-                    pass
-                else:
-                    st.markdown(f"**Approx. protein lost:** {fraction_lost:.2f} ({perc_lost:.1f}%)")
-                st.markdown(extra, unsafe_allow_html=True)
+            st.markdown(f"**Protein impact:** {impact}")
+
+            if "corrupted by frameshift" in impact:
+                # % already in impact text
+                pass
+            else:
+                st.markdown(f"**Approx. protein lost:** {fraction_lost:.2f} ({perc_lost:.1f}%)")
+
+            st.markdown(extra, unsafe_allow_html=True)
 
 
 with tab_report:
@@ -314,7 +320,6 @@ with tab_report:
             "Protein impact",
         ]].copy()
 
-        # In the report, make the text a bit more “clinical”
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
         st.divider()
