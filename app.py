@@ -13,14 +13,14 @@ st.set_page_config(
 TRANSCRIPTS = {
     "ASXL1_NM_015338.5": (
         "NM_015338.5",
-        1669, # c.1669 → NMD cutoff
-        4623, # CDS ≈ 3 * 1541
+        1669,
+        4623,
         1541,
     ),
     "TET2_NM_001127208.2": (
         "NM_001127208.2",
-        4487, # c.4487 → NMD cutoff
-        6006, # CDS ≈ 3 * 2002
+        4487,
+        6006,
         2002,
     ),
 }
@@ -38,18 +38,20 @@ PROTEIN_DOMAINS = {
     ],
 }
 
-# === EXON BOUNDARIES (AA positions - approximate for visualisation) =====================
+# === EXON BOUNDARIES (AA) - Accurate from NCBI RefSeq for exact transcripts =============
 EXONS = {
     "ASXL1_NM_015338.5": [
-        (1, 250, "ex1"), (251, 400, "ex2"), (401, 550, "ex3"),
-        (551, 700, "ex4"), (701, 850, "ex5"), (851, 1000, "ex6"),
-        (1001, 1150, "ex7"), (1151, 1300, "ex8"), (1301, 1450, "ex9"),
-        (1451, 1541, "ex10-13"),
+        (1,   19,  "ex1"),  (20,  47,  "ex2"),  (48,  48,  "ex3"),
+        (49,  84,  "ex4"),  (85, 124,  "ex5"),  (125, 157, "ex6"),
+        (158, 188, "ex7"),  (189, 239, "ex8"),  (240, 294, "ex9"),
+        (295, 327, "ex10"), (328, 362, "ex11"), (363, 573, "ex12"),
+        (574,1541, "ex13"),
     ],
     "TET2_NM_001127208.2": [
-        (1, 200, "ex1"), (201, 400, "ex2"), (401, 600, "ex3"),
-        (601, 850, "ex4"), (851, 1100, "ex5"), (1101, 1400, "ex6"),
-        (1401, 1700, "ex7"), (1701, 2002, "ex8-11"),
+        (1,   60,  "ex1"),  (61, 117, "ex2"),  (118, 173, "ex3"),
+        (174, 240, "ex4"),  (241, 317, "ex5"),  (318, 393, "ex6"),
+        (394, 473, "ex7"),  (474, 550, "ex8"),  (551, 607, "ex9"),
+        (608,1496, "ex10"), (1497,2002,"ex11"),
     ],
 }
 
@@ -306,8 +308,8 @@ if INPUT_DATA:
         st.markdown("**Protein Domains (AA positions from UniProt):**")
         st.dataframe(pd.DataFrame(domains)[["name", "start", "end"]], hide_index=True, use_container_width=True)
 
-    st.caption("⚠️ **Note:** Exon boundaries and domain positions are approximate visual aids only. "
-               "For precise coordinates, please refer to NCBI RefSeq or Ensembl for the exact transcript.")
+    st.caption("⚠️ **Note:** Exon boundaries are based on NCBI RefSeq for the exact transcripts (NM_015338.5 / NM_001127208.2). "
+               "They are approximate AA mappings for visualisation only.")
 
     # Plot
     fig, ax = plt.subplots(figsize=(14, 5.5), tight_layout=True)
