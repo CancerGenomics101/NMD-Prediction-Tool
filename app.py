@@ -340,110 +340,63 @@ if INPUT_DATA:
     cds_end = 3 * prot_len
     nmd_cutoff = current["nmd_cutoff_cdna"]
 
-    # Use last variant processed to drive the track
+    # Use the variant information
     last = INPUT_DATA[-1]
-
-    # Get PTC codon from p. (no c. parsing here)
+    variant_label = last["Variant"].split()[-1] # e.g. p.Ser21*
+    
+    # Calculate PTC position
     codon_ptc = parse_p_ptc_position(last["Variant"].strip())
-    if codon_ptc is None:
-        codon_ptc = last["PTC codon"]
-
     ptc_c_pos = 3 * codon_ptc
 
-    # Detect frameshift start codon from p.
+    # Calculate variant start
     frameshift_start_codon = None
     if "fs" in last["Variant"]:
-        m_p = re.search(
-            r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
-            last["Variant"],
-            re.IGNORECASE
-        )
-        if m_p:
-            frameshift_start_codon = int(m_p.group(1))
-
-    # Determine where the “variant origin” is (above the bar)
-    # For nonsense and frameshift this is the start codon; for 3′ UTR it’s still the PTC_codon
-    if frameshift_start_codon is not None:
+        m_p = re.search(r"p\.[A-Z][a-z]{2}?(\d+)", last["Variant"], re.IGNORECASE)
+        if m_p: frameshift_start_codon = int(m_p.group(1))
+    
+    # Define start position (var_origin)
+    if frameshift_start_codon:
         var_origin = 3 * frameshift_start_codon
     else:
-        var_origin = ptc_c_pos  # nonsense / simple truncation
+        var_origin = ptc_c_pos
 
-    # Draw the full‑width gene track (always from 1 to cds_end)
-    fig, ax = plt.subplots(figsize=(12, 2.0))
-
+    # Plot
+    fig, ax = plt.subplots(figsize=(12, 2.0), tight_layout=True)
     y = 0
     height = 1.0
 
-    color_intact = "cornflowerblue"
-    color_broken = "salmon"
+    # Bars: Blue (intact), Salmon (compromised)
+    ax.barh(y, var_origin, height=height, color="cornflowerblue", edgecolor="black")
+    ax.barh(y, cds_end - var_origin, left=var_origin, height=height, color="salmon", edgecolor="black")
 
-    # Full‑width bar: left = intact, right = compromised
-    if var_origin < cds_end:
-        ax.barh(y, var_origin, height=height, color=color_intact, edgecolor="black")  # intact up to variant
-        ax.barh(y, cds_end - var_origin, left=var_origin, height=height, color=color_broken, edgecolor="black")
-    else:
-        # If variant_origin is beyond CDS (e.g., deep‑inside‑frame chimera‑like), just show all blue
-        ax.barh(y, cds_end, height=height, color=color_intact, edgecolor="black")
-
-    # Axis limits and labels
+    # Formatting
     ax.set_xlim(1, cds_end)
-    ax.set_ylim(-2.0, 3.0)
+    ax.set_ylim(-3.5, 3.5) # Expanded y‑limits to prevent overlap
     ax.set_yticks([])
     ax.set_xlabel("cDNA position along transcript")
 
-    # Vertical ticks at start and end
+    # Start/End markers
     ax.axvline(1, color="black", linewidth=1.5, ymin=0.3, ymax=0.7)
     ax.axvline(cds_end, color="black", linewidth=1.5, ymin=0.3, ymax=0.7)
-    ax.text(
-        1, 2.6, "Start",
-        horizontalalignment="left", verticalalignment="center", fontsize=9,
-    )
-    ax.text(
-        cds_end, 2.6, "CDS end",
-        horizontalalignment="right", verticalalignment="center", fontsize=9,
-    )
+    ax.text(1, 2.6, variant_label, ha="left", va="center", fontsize=9, fontweight="bold")
+    ax.text(cds_end, 2.6, "CDS end", ha="right", va="center", fontsize=9)
 
-    # Purple dashed line: NMD cutoff
+    # NMD Cutoff
     if nmd_cutoff <= cds_end:
         ax.axvline(nmd_cutoff, color="purple", linestyle=":", linewidth=2.5, ymin=0.1, ymax=0.9)
-        ax.text(
-            nmd_cutoff, -1.2, "NMD cutoff",
-            horizontalalignment="center", verticalalignment="top", fontsize=8, color="purple"
-        )
+        ax.text(nmd_cutoff, -1.5, "NMD cutoff", ha="center", va="top", fontsize=8, color="purple")
 
-    # Top arrow: variant origin (frameshift start or PTC codon)
-    ax.annotate(
-        " ⬅ variant origin",
-        xy=(var_origin, 1.3),
-        xytext=(var_origin, 2.6),
-        arrowprops=dict(arrowstyle="->", color="black", lw=1.5),
-        fontsize=10,
-        ha="center"
-    )
+    # PTC marker (Bottom arrow)
+    ax.annotate("PTC", xy=(ptc_c_pos, -0.5), xytext=(ptc_c_pos, -2.8), 
+                arrowprops=dict(arrowstyle="->", color="black", lw=1.5), fontsize=10, ha="center")
 
-    # Bottom arrow: PTC location
-    arrow_y = -1.4
-    txt = "PTC codon"
+    # 3' UTR visual
     if ptc_c_pos > cds_end:
-        txt = "3′ UTR stop codon"
-        # Extend x‑limit a bit to show it off‑the‑end
         ax.set_xlim(1, ptc_c_pos + 200)
-        # Draw a small “3′ UTR box”
         ax.axhspan(-0.8, -0.3, xmin=(cds_end / (ptc_c_pos + 200)), xmax=0.98, color="lightyellow", alpha=0.5)
         ax.text(cds_end + 10, -0.55, "3′ UTR", fontsize=8, color="black", ha="left")
 
-    ax.annotate(
-        txt,
-        xy=(ptc_c_pos, arrow_y),
-        xytext=(ptc_c_pos, -2.8),
-        arrowprops=dict(arrowstyle="->", color="black", lw=1.5),
-        fontsize=10,
-        ha="center"
-    )
-
-    # Show the figure
     st.pyplot(fig, use_container_width=True)
-
 
 # Footer (copyright notice)
 st.markdown(
