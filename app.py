@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 # === Configure page layout (full width) ==================================================
 st.set_page_config(
-    page_title="NMD Predictor V1.0",
+    page_title="NMD Predictor v1.0",
     layout="wide",
 )
 
