@@ -1,6 +1,7 @@
 import streamlit as st
 import re
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 # === Configure page layout (full width) ==================================================
@@ -52,7 +53,6 @@ def extract_c_pos_from_c_hgvs(hgvs_c):
       - c.234_235insA
       - c.234_235dup
     """
-    # Correct regex: single backslash, not double
     m = re.search(r"c\.(\d+)", hgvs_c)
     if m:
         return int(m.group(1))
@@ -199,7 +199,7 @@ with tab_input:
                 )
 
             # NMD vs truncated vs UTR‑extension
-            cds_len = current["reference_mrna_len"]
+            cds_len = current["reference_mrna_len"]  # ≈ CDS length
             prot_len = current["protein_length_aa"]
             cds_end = 3 * prot_len
 
@@ -331,10 +331,91 @@ with tab_report:
         st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment", "Mechanism / driver note", "Protein impact"]].to_csv(index=False))
 
 
-# Footer (optional)
-st.markdown(
-    "<p style='font-size:12px; color:#888; text-align:center; margin-top:30px;'>"
-    "© 2026 Ashley Sunderland • NMD Predictor (educational use only, no reproduction without permission)."
-    "</p>",
-    unsafe_allow_html=True,
-)
+
+# --- === GENE TRACK WITH NMD CUTOFF AT THE BOTTOM OF THE PAGE === ---
+
+if INPUT_DATA:
+    current = get_params(st.session_state.gene_tx_key)
+    cds_end = 3 * current["protein_length_aa"]
+    nmd_cutoff = current["nmd_cutoff_cdna"]
+
+    # Use last variant processed to drive the track (you can switch to first etc. if you prefer)
+    last = INPUT_DATA[-1]
+    line = last["Variant"]
+    ptc_c_pos = extract_c_pos_from_c_hgvs(line)  # very rough fallback
+    if "PTC cDNA" in last:
+        ptc_c_pos = int(last["PTC cDNA"][2:])
+
+    # Detect frameshift start codon again from the last variant
+    frameshift_start_codon = None
+    if "fs" in line:
+        m_p = re.search(
+            r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
+            line,
+            re.IGNORECASE
+        )
+        if m_p:
+            frameshift_start_codon = int(m_p.group(1))
+
+    fs_c_pos = None
+    if frameshift_start_codon is not None:
+        fs_c_pos = 3 * frameshift_start_codon
+
+    # Now draw the gene track (one at the bottom of the page, above the footer)
+    fig, ax = plt.subplots(figsize=(12, 2.0))
+
+    # Draw the “gene” bar as a long horizontal rectangle
+    y = 0
+    height = 1.0
+
+    color_intact = "cornflowerblue"
+    color_broken = "salmon"
+
+    if fs_c_pos is not None:
+        # Frameshift case
+        # intact (blue) from c.1 to frameshift
+        ax.barh(y, fs_c_pos, height=height, color=color_intact, edgecolor="black")
+        # corrupted (red) from frameshift to either PTC or CDS end
+        right = min(ptc_c_pos, cds_end) if ptc_c_pos is not None else cds_end
+        ax.barh(y, right - fs_c_pos, left=fs_c_pos, height=height, color=color_broken, edgecolor="black")
+    else:
+        # Simple nonsense / truncation
+        if ptc_c_pos is not None:
+            ax.barh(y, ptc_c_pos, height=height, color=color_intact, edgecolor="black")
+            ax.barh(y, cds_end - ptc_c_pos, left=ptc_c_pos, height=height, color=color_broken, edgecolor="black")
+        else:
+            # fallback: just show blue full gene
+            ax.barh(y, cds_end, height=height, color=color_intact, edgecolor="black")
+
+    # Axis limits and labels
+    ax.set_xlim(1, cds_end)
+    ax.set_ylim(-1.8, 2.8)
+    ax.set_yticks([])
+    ax.set_xlabel("cDNA position along transcript")
+
+    # Thin vertical lines at start and end to hint “gene” structure
+    ax.axvline(1, color="black", linewidth=1.5, ymin=0.3, ymax=0.7)
+    ax.axvline(cds_end, color="black", linewidth=1.5, ymin=0.3, ymax=0.7)
+    ax.text(
+        1, 2.4, "Start",
+        horizontalalignment="left", verticalalignment="center", fontsize=9,
+    )
+    ax.text(
+        cds_end, 2.4, "CDS end",
+        horizontalalignment="right", verticalalignment="center", fontsize=9,
+    )
+
+    # Add a purple dotted line at the NMD cutoff (if it’s within CDS)
+    if nmd_cutoff <= cds_end:
+        ax.axvline(
+            nmd_cutoff,
+            color="purple",
+            linestyle=":",
+            linewidth=2.5,
+        )
+        ax.text(
+            nmd_cutoff, -1.0, "NMD cutoff",
+            horizontalalignment="center", verticalalignment="top", fontsize=8, color="purple"
+        )
+
+    # Top arrow: frameshift start
