@@ -336,20 +336,21 @@ with tab_report:
 
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
-    cds_end = 3 * current["protein_length_aa"]
+    prot_len = current["protein_length_aa"]
+    cds_end = 3 * prot_len
     nmd_cutoff = current["nmd_cutoff_cdna"]
 
     # Use last variant processed to drive the track
     last = INPUT_DATA[-1]
 
-    # Extract PTC codon from p. (no c. parsing here)
+    # Get PTC codon from p. (no c. parsing here)
     codon_ptc = parse_p_ptc_position(last["Variant"].strip())
     if codon_ptc is None:
-        codon_ptc = last["PTC codon"]  # fall back to our stored value
+        codon_ptc = last["PTC codon"]
 
     ptc_c_pos = 3 * codon_ptc
 
-    # Detect frameshift start codon from p. (no c. parsing here)
+    # Detect frameshift start codon from p.
     frameshift_start_codon = None
     if "fs" in last["Variant"]:
         m_p = re.search(
@@ -360,99 +361,87 @@ if INPUT_DATA:
         if m_p:
             frameshift_start_codon = int(m_p.group(1))
 
-    fs_c_pos = None
+    # Determine where the “variant origin” is (above the bar)
+    # For nonsense and frameshift this is the start codon; for 3′ UTR it’s still the PTC_codon
     if frameshift_start_codon is not None:
-        fs_c_pos = 3 * frameshift_start_codon
+        var_origin = 3 * frameshift_start_codon
+    else:
+        var_origin = ptc_c_pos  # nonsense / simple truncation
 
-    # Now draw the gene track (one at the bottom of the page, above the footer)
+    # Draw the full‑width gene track (always from 1 to cds_end)
     fig, ax = plt.subplots(figsize=(12, 2.0))
 
-    # Draw the “gene” bar as a long horizontal rectangle
     y = 0
     height = 1.0
 
     color_intact = "cornflowerblue"
     color_broken = "salmon"
 
-    if fs_c_pos is not None:
-        # Frameshift case
-        ax.barh(y, fs_c_pos, height=height, color=color_intact, edgecolor="black")
-        right = min(ptc_c_pos, cds_end) if ptc_c_pos is not None else cds_end
-        ax.barh(y, right - fs_c_pos, left=fs_c_pos, height=height, color=color_broken, edgecolor="black")
+    # Full‑width bar: left = intact, right = compromised
+    if var_origin < cds_end:
+        ax.barh(y, var_origin, height=height, color=color_intact, edgecolor="black")  # intact up to variant
+        ax.barh(y, cds_end - var_origin, left=var_origin, height=height, color=color_broken, edgecolor="black")
     else:
-        # Truncated nonsense
-        if ptc_c_pos is not None:
-            ax.barh(y, ptc_c_pos, height=height, color=color_intact, edgecolor="black")
-            ax.barh(y, cds_end - ptc_c_pos, left=ptc_c_pos, height=height, color=color_broken, edgecolor="black")
-        else:
-            # fallback: just show blue full gene
-            ax.barh(y, cds_end, height=height, color=color_intact, edgecolor="black")
+        # If variant_origin is beyond CDS (e.g., deep‑inside‑frame chimera‑like), just show all blue
+        ax.barh(y, cds_end, height=height, color=color_intact, edgecolor="black")
 
     # Axis limits and labels
     ax.set_xlim(1, cds_end)
-    ax.set_ylim(-1.8, 2.8)
+    ax.set_ylim(-2.0, 3.0)
     ax.set_yticks([])
     ax.set_xlabel("cDNA position along transcript")
 
-    # Thin vertical lines at start and end
+    # Vertical ticks at start and end
     ax.axvline(1, color="black", linewidth=1.5, ymin=0.3, ymax=0.7)
     ax.axvline(cds_end, color="black", linewidth=1.5, ymin=0.3, ymax=0.7)
     ax.text(
-        1, 2.4, "Start",
+        1, 2.6, "Start",
         horizontalalignment="left", verticalalignment="center", fontsize=9,
     )
     ax.text(
-        cds_end, 2.4, "CDS end",
+        cds_end, 2.6, "CDS end",
         horizontalalignment="right", verticalalignment="center", fontsize=9,
     )
 
-    # Add a purple dotted line at the NMD cutoff (if it’s within CDS)
+    # Purple dashed line: NMD cutoff
     if nmd_cutoff <= cds_end:
-        ax.axvline(
-            nmd_cutoff,
-            color="purple",
-            linestyle=":",
-            linewidth=2.5,
-        )
+        ax.axvline(nmd_cutoff, color="purple", linestyle=":", linewidth=2.5, ymin=0.1, ymax=0.9)
         ax.text(
-            nmd_cutoff, -1.0, "NMD cutoff",
+            nmd_cutoff, -1.2, "NMD cutoff",
             horizontalalignment="center", verticalalignment="top", fontsize=8, color="purple"
         )
 
-    # Top arrow: frameshift start
-    if fs_c_pos is not None:
-        ax.annotate(
-            " ⬅ frameshift",
-            xy=(fs_c_pos, 1.3),
-            xytext=(fs_c_pos, 2.2),
-            arrowprops=dict(
-                arrowstyle="->",
-                color="black",
-                lw=1.5
-            ),
-            fontsize=10,
-            ha="center"
-        )
-
-    # Bottom arrow: PTC or 3′ UTR
-    arrow_y = -1.3
-    txt = "PTC codon"
-    if ptc_c_pos > cds_end:
-        txt = "3′ UTR stop codon"
+    # Top arrow: variant origin (frameshift start or PTC codon)
     ax.annotate(
-        txt,
-        xy=(ptc_c_pos, arrow_y),
-        xytext=(ptc_c_pos, -2.5),
-        arrowprops=dict(
-            arrowstyle="->",
-            color="black",
-            lw=1.5
-        ),
+        " ⬅ variant origin",
+        xy=(var_origin, 1.3),
+        xytext=(var_origin, 2.6),
+        arrowprops=dict(arrowstyle="->", color="black", lw=1.5),
         fontsize=10,
         ha="center"
     )
 
-    # Finally, show the figure
+    # Bottom arrow: PTC location
+    arrow_y = -1.4
+    txt = "PTC codon"
+    if ptc_c_pos > cds_end:
+        txt = "3′ UTR stop codon"
+        # Extend x‑limit a bit to show it off‑the‑end
+        ax.set_xlim(1, ptc_c_pos + 200)
+        # Draw a small “3′ UTR box”
+        ax.axhspan(-0.8, -0.3, xmin=(cds_end / (ptc_c_pos + 200)), xmax=0.98, color="lightyellow", alpha=0.5)
+        ax.text(cds_end + 10, -0.55, "3′ UTR", fontsize=8, color="black", ha="left")
+
+    ax.annotate(
+        txt,
+        xy=(ptc_c_pos, arrow_y),
+        xytext=(ptc_c_pos, -2.8),
+        arrowprops=dict(arrowstyle="->", color="black", lw=1.5),
+        fontsize=10,
+        ha="center"
+    )
+
+    # Show the figure
     st.pyplot(fig, use_container_width=True)
 
 
