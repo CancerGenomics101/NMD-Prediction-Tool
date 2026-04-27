@@ -252,7 +252,7 @@ with tab_input:
     **Ownership and use notice:**
     This NMD Predictor is an in‑house tool developed by **Ashley Sunderland**.
     You may use it for internal educational and analytical purposes, but reproduction, redistribution, or commercial use without prior written permission is not permitted.
-    This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**. Lovingly handcrafted in Yorkshire.
+    This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
     """, unsafe_allow_html=True)
 
     sorted_genes = sorted(TRANSCRIPTS.keys())
