@@ -79,7 +79,7 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                 expl += ")"
             caveat = ("⚠️ Full functional domain(s) lost. It is still up to the user to determine "
                       "if these domains are biologically critical in this context. "
-                      "Consider downgrading if the domains are not essential for protein function.")
+                      "Consider downgrading to O2_Mod if the domains are not essential for protein function.")
         elif partial_domains_lost or percent_lost >= 10:
             code = "O2_STR"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
