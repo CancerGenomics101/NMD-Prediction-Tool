@@ -1,5 +1,5 @@
-# NMD-Prediction-Tool V1.0
-Users can input HGVS nomenclature to automatically calculate whether nonsense mediated decay is likely to occur in the selected gene. 
+# NMD-Prediction-Tool v1.0
+Users can input HGVS nomenclature to automatically calculate whether nonsense mediated decay (NMD) is likely to occur in the selected gene. If evaded, the app will calculate the proportion of the protein expected to be compromised. The result is visualised on a custome gene track complete with functional domains, exon boundaries and NMD cut-off. Users are also provided with a suggested S-VIG O2 classification, based on the severity of the truncating variant. 
 
 Available genes in current release: ASXL1 (NM_015338.5), TET2 (NM_001127208.2), DNMT3A (NM_175629.2), TP53 (NM_000546.5).
 
