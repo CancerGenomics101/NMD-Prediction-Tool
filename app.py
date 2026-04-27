@@ -147,7 +147,7 @@ def hgvs_to_ptc_c_pos(hgvs_str):
 # === STREAMLIT LAYOUT ====================================================================
 st.markdown("<h1>NMD Predictor v1.0</h1>", unsafe_allow_html=True)
 
-tab_input, tab_report = st.tabs(["Input (Tool)", "Report (Structured Output)"])
+tab_input, tab_report, tab_pvs1 = st.tabs(["Input (Tool)", "Report (Structured Output)", "PVS1 Decision Tree"])
 
 INPUT_DATA = []
 
@@ -348,6 +348,77 @@ with tab_report:
             file_name="NMD_Predictor_Report.csv",
             mime="text/csv"
         )
+
+# === PVS1 DECISION TREE TAB ====================================================
+with tab_pvs1:
+    st.markdown("### PVS1 Decision Tree for Truncating / Frameshift Variants (NMD-evaded)")
+    st.caption("Simplified for tumour suppressor genes • Only the branch relevant to this tool")
+    
+    if not INPUT_DATA or not st.session_state.get("gene_tx_key"):
+        st.info("👈 Paste a variant in the **Input** tab and select a gene to see the highlighted path.")
+        st.stop()
+    
+    # Use the last variant for highlighting
+    last_variant = INPUT_DATA[-1]
+    current = get_params(st.session_state.gene_tx_key)
+    ptc_c_pos = last_variant.get("PTC cDNA", "").replace("c.", "")
+    try:
+        ptc_c_pos = int(ptc_c_pos) if ptc_c_pos else 0
+    except:
+        ptc_c_pos = 0
+    
+    prot_len = current["protein_length_aa"]
+    corruption_aa = last_variant.get("PTC codon", 0)  # approximate
+    percent_lost = max(0.0, 1.0 - corruption_aa / prot_len) * 100
+    
+    svig_code, svig_expl, svig_caveat = get_svig_o2_suggestion(
+        ptc_c_pos, prot_len, current["nmd_cutoff_cdna"], 
+        None, st.session_state.gene_tx_key  # frameshift_start handled inside function
+    )
+    
+    # Visual Decision Tree
+    st.markdown("---")
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.markdown("**Current Variant Path**")
+        st.metric("Protein Lost", f"{percent_lost:.1f}%")
+        st.markdown(f"**Strength:** `{svig_code}`")
+    
+    with col2:
+        if svig_caveat:
+            st.warning("⚠️ **Potential Downgrade Possible** — Domain affected despite ≤10% loss. Review biological importance.")
+    
+    st.markdown("---")
+    
+    # The Tree (HTML for nice boxes + highlighting)
+    tree_html = f"""
+    <div style="font-family: monospace; line-height: 2.0; font-size: 15px;">
+    
+    <b>Start: Truncating / Frameshift Variant</b><br>
+    ↓<br>
+    <b>Is the PTC before NMD cutoff?</b><br>
+    <span style="color:{'#28a745' if svig_code == 'O2_VSTR' else '#666'}">→ Yes → <b>O2_VSTR (Very Strong)</b></span><br>
+    <span style="color:{'#666' if svig_code == 'O2_VSTR' else '#28a745'}">→ No (NMD evaded) ↓</span><br><br>
+    
+    <b>Does it remove >10% of protein OR affect any domain?</b><br>
+    <span style="color:{'#28a745' if svig_code == 'O2_STR' else '#666'}">→ Yes → <b>O2_STR (Strong)</b></span><br>
+    {'<span style="color:#ff9800">→ ⚠️ Domain hit with ≤10% loss → Consider downgrade to Moderate</span><br>' if svig_caveat else ''}
+    <span style="color:{'#666' if svig_code in ['O2_STR','O2_VSTR'] else '#28a745'}">→ No ↓</span><br><br>
+    
+    <b>Is protein loss between 5–10%?</b><br>
+    <span style="color:{'#28a745' if svig_code == 'O2_Mod' else '#666'}">→ Yes → <b>O2_Mod (Moderate)</b></span><br>
+    <span style="color:{'#666' if svig_code == 'O2_Mod' else '#28a745'}">→ No (loss &lt;5%) ↓</span><br><br>
+    
+    <b>Very minor loss (&lt;5%) + no domain impact</b><br>
+    <span style="color:{'#28a745' if svig_code == 'O2_Supp' else '#666'}">→ <b>O2_Supp (Supporting)</b></span>
+    
+    </div>
+    """
+    st.markdown(tree_html, unsafe_allow_html=True)
+    
+    st.caption("Based on Abou Tayoun et al. (2018) PVS1 guidelines + SVIG-UK recommendations")
 
 # === Gene Track ===
 if INPUT_DATA:
