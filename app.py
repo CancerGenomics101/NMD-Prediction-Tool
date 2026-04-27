@@ -355,7 +355,7 @@ with tab_report:
             mime="text/csv"
         )
 
-# === Gene Track (Exactly as you provided) ===
+# === Gene Track (Exactly as your original) ===
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
