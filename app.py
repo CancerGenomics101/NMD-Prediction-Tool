@@ -49,7 +49,7 @@ def is_canonical_splice_site_variant(hgvs_c):
             return True
     return False
 
-# === S-VIG O2 STRENGTH SUGGESTION ====================================================
+# === S-VIG O2 STRENGTH SUGGESTION (Shows both full and partial domains) =============
 def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                            frameshift_start_codon: int = None, gene_tx_key: str = None):
     corruption_aa = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
@@ -70,20 +70,28 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
         expl = "NMD predicted → Very Strong"
         caveat = ""
     else:
+        domain_info = ""
+        if full_domains_lost:
+            domain_info += f"full loss of: {', '.join(full_domains_lost)}"
+        if partial_domains_lost:
+            if domain_info:
+                domain_info += ", "
+            domain_info += f"partial loss of: {', '.join(partial_domains_lost)}"
+
         if full_domains_lost or percent_lost >= 15:
             code = "O2_STR"
             expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost"
-            if full_domains_lost:
-                expl += f", full loss of: {', '.join(full_domains_lost)})"
+            if domain_info:
+                expl += f", {domain_info})"
             else:
                 expl += ")"
             caveat = ""
         elif partial_domains_lost or percent_lost >= 10:
             code = "O2_STR"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
-            if partial_domains_lost:
-                expl += f", partial loss of: {', '.join(partial_domains_lost)}"
-            caveat = (f"⚠️ Partial loss of domain(s): {', '.join(partial_domains_lost)}. "
+            if domain_info:
+                expl += f", {domain_info}"
+            caveat = (f"⚠️ Partial loss of domain(s): {', '.join(partial_domains_lost) if partial_domains_lost else 'None'}. "
                       "Please review if the remaining portion of the domain is still functional "
                       "— consider downgrading to O2_Mod if the partial domain is not critical.")
         elif percent_lost >= 5:
