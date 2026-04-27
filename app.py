@@ -1,103 +1,114 @@
 import streamlit as st
-import re
-import pandas as pd
-import matplotlib.pyplot as plt
-import random
 import sys
 from pathlib import Path
 
-# === Configure page layout + Fancy Landing Page =============================
 st.set_page_config(
     page_title="NMD Predictor v1.0",
     layout="wide",
-    initial_sidebar_state="collapsed",   # Cleaner landing
+    initial_sidebar_state="collapsed",
 )
 
-# === Luxury Landing Page CSS (Aston Martin inspired) ========================
+# === Premium Aston Martin Style Landing Page =============================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
 
-    .landing-container {
+    .landing {
+        height: 100vh;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 92vh;
-        background: linear-gradient(135deg, #0f172a 0%, #1e2937 100%);
+        background: linear-gradient(135deg, #0a0f1c 0%, #1a2338 100%);
         color: white;
         text-align: center;
+        overflow: hidden;
+        position: relative;
     }
-    
+
+    .dna-container {
+        margin-bottom: 2rem;
+        animation: spin 8s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
     .app-title {
         font-family: 'Cinzel', serif;
-        font-size: 5.2rem;
+        font-size: 5.8rem;
         font-weight: 900;
-        letter-spacing: 0.12em;
-        margin-bottom: 1rem;
-        background: linear-gradient(90deg, #f8fafc, #cbd5e1, #f8fafc);
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        margin: 0;
+        background: linear-gradient(90deg, #e2e8f0, #f8fafc, #e2e8f0);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        text-shadow: 0 8px 25px rgba(0,0,0,0.4);
+        text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
-    
+
     .subtitle {
         font-family: 'Inter', sans-serif;
-        font-size: 1.45rem;
+        font-size: 1.35rem;
         font-weight: 300;
         color: #94a3b8;
-        margin-bottom: 4.5rem;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.15em;
+        margin-top: 1rem;
+        margin-bottom: 4rem;
     }
-    
+
     .init-button {
         background: linear-gradient(90deg, #334155, #475569);
         color: white;
-        border: none;
-        padding: 20px 60px;
-        font-size: 1.4rem;
+        border: 2px solid #64748b;
+        padding: 18px 70px;
+        font-size: 1.35rem;
         font-weight: 600;
-        font-family: 'Inter', sans-serif;
-        letter-spacing: 0.12em;
-        border-radius: 60px;
+        letter-spacing: 0.2em;
+        border-radius: 50px;
         cursor: pointer;
-        transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
-        box-shadow: 0 15px 35px rgba(15, 23, 42, 0.5);
+        transition: all 0.4s ease;
         text-transform: uppercase;
     }
-    
+
     .init-button:hover {
-        transform: translateY(-6px) scale(1.06);
-        box-shadow: 0 25px 50px rgba(15, 23, 42, 0.6);
-        background: linear-gradient(90deg, #475569, #334155);
+        background: linear-gradient(90deg, #475569, #64748b);
+        transform: scale(1.08);
+        box-shadow: 0 0 40px rgba(148, 163, 184, 0.4);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Session state to control landing screen
+# Session State
 if "initialized" not in st.session_state:
     st.session_state.initialized = False
 
 # ==================== LANDING PAGE ====================
 if not st.session_state.initialized:
-    st.markdown('<div class="landing-container">', unsafe_allow_html=True)
-    
-    st.markdown('<h1 class="app-title">NMD PREDICTOR</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="landing">', unsafe_allow_html=True)
+
+    # Spinning DNA
+    st.markdown("""
+        <div class="dna-container">
+            <span style="font-size: 6.5rem;">🧬</span>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Main Title - Very clean and centered like Aston Martin
+    st.markdown('<h1 class="app-title">NMD Predictor</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">v1.0 • Tumour Suppressor Variant Interpreter</p>', unsafe_allow_html=True)
-    
+
+    # Initialise Button
     if st.button("INITIALISE", key="init_button"):
         st.session_state.initialized = True
         st.rerun()
-    
+
     st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown(
-        "<p style='text-align:center; color:#64748b; margin-top:100px; font-size:0.95rem;'>"
-        "Educational & Research Tool Only • Developed by Ashley Sunderland</p>",
-        unsafe_allow_html=True
-    )
-    
-    st.stop()   # ← Stops the rest of the app from running until button is clicked
+
+    st.stop()   # Important - stops the rest of the app
     
 # ==================== MAIN APP STARTS HERE ====================
 sys.path.append(str(Path(__file__).parent))
