@@ -49,7 +49,7 @@ def is_canonical_splice_site_variant(hgvs_c):
             return True
     return False
 
-# === S-VIG O2 STRENGTH SUGGESTION (Fixed) ========================================
+# === S-VIG O2 STRENGTH SUGGESTION ====================================================
 def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                            frameshift_start_codon: int = None, gene_tx_key: str = None):
     corruption_aa = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
@@ -91,9 +91,8 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
             if domain_info:
                 expl += f", {domain_info}"
-            caveat = ""   # No warning for >=10%
+            caveat = ""
         else:
-            # Only <10% loss gets the warning
             code = "O2_STR"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
             if full_domains_lost or partial_domains_lost:
