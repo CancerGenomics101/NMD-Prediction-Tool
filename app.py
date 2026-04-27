@@ -1,16 +1,107 @@
 import streamlit as st
-import re
-import pandas as pd
-import matplotlib.pyplot as plt
-import random
 import sys
 from pathlib import Path
 
-# === Configure page layout (full width) ==================================================
 st.set_page_config(
     page_title="NMD Predictor v1.0",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
+
+# === Clean White + Classy Landing Page =====================================
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
+
+    .landing {
+        padding-top: 80px;
+        padding-bottom: 80px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #ffffff;
+        text-align: center;
+    }
+
+    .dna-spin {
+        font-size: 7rem;
+        margin-bottom: 20px;
+        animation: spin 10s linear infinite;
+        display: inline-block;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    .app-title {
+        font-family: 'Cinzel', serif;
+        font-size: 4.8rem;
+        font-weight: 900;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #111111;
+        margin: 0;
+        padding: 0;
+    }
+
+    .subtitle {
+        font-family: 'Inter', sans-serif;
+        font-size: 1.4rem;
+        color: #444444;
+        margin-top: 10px;
+        margin-bottom: 50px;
+        letter-spacing: 0.12em;
+        font-weight: 300;
+    }
+
+    .init-button {
+        background-color: #111111;
+        color: white;
+        border: none;
+        padding: 18px 65px;
+        font-size: 1.35rem;
+        font-weight: 600;
+        letter-spacing: 0.15em;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+    }
+
+    .init-button:hover {
+        background-color: #333333;
+        transform: translateY(-3px);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+if "initialized" not in st.session_state:
+    st.session_state.initialized = False
+
+# ==================== LANDING PAGE ====================
+if not st.session_state.initialized:
+    st.markdown('<div class="landing">', unsafe_allow_html=True)
+    
+    st.markdown('<div class="dna-spin">🧬</div>', unsafe_allow_html=True)
+    
+    st.markdown('<h1 class="app-title">NMD Predictor</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">v1.0 • Tumour Suppressor Variant Interpreter</p>', unsafe_allow_html=True)
+    
+    if st.button("INITIALISE", key="init_button"):
+        st.session_state.initialized = True
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.stop()
+
+# ==================== APP STARTS HERE ====================
+sys.path.append(str(Path(__file__).parent))
+from data import TRANSCRIPTS, PROTEIN_DOMAINS, EXONS, EDUCATIONAL_FACTS
 
 sys.path.append(str(Path(__file__).parent))
 from data import TRANSCRIPTS, PROTEIN_DOMAINS, EXONS, EDUCATIONAL_FACTS
