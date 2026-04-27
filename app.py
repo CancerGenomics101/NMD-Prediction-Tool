@@ -1,118 +1,16 @@
 import streamlit as st
+import re
+import pandas as pd
+import matplotlib.pyplot as plt
+import random
 import sys
 from pathlib import Path
 
+# === Configure page layout (full width) ==================================================
 st.set_page_config(
     page_title="NMD Predictor v1.0",
     layout="wide",
-    initial_sidebar_state="collapsed",
 )
-
-# === Premium Aston Martin Style Landing Page =============================
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
-
-    .landing {
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #0a0f1c 0%, #1a2338 100%);
-        color: white;
-        text-align: center;
-        overflow: hidden;
-        position: relative;
-    }
-
-    .dna-container {
-        margin-bottom: 2rem;
-        animation: spin 8s linear infinite;
-    }
-
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-    }
-
-    .app-title {
-        font-family: 'Cinzel', serif;
-        font-size: 5.8rem;
-        font-weight: 900;
-        letter-spacing: 0.25em;
-        text-transform: uppercase;
-        margin: 0;
-        background: linear-gradient(90deg, #e2e8f0, #f8fafc, #e2e8f0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    }
-
-    .subtitle {
-        font-family: 'Inter', sans-serif;
-        font-size: 1.35rem;
-        font-weight: 300;
-        color: #94a3b8;
-        letter-spacing: 0.15em;
-        margin-top: 1rem;
-        margin-bottom: 4rem;
-    }
-
-    .init-button {
-        background: linear-gradient(90deg, #334155, #475569);
-        color: white;
-        border: 2px solid #64748b;
-        padding: 18px 70px;
-        font-size: 1.35rem;
-        font-weight: 600;
-        letter-spacing: 0.2em;
-        border-radius: 50px;
-        cursor: pointer;
-        transition: all 0.4s ease;
-        text-transform: uppercase;
-    }
-
-    .init-button:hover {
-        background: linear-gradient(90deg, #475569, #64748b);
-        transform: scale(1.08);
-        box-shadow: 0 0 40px rgba(148, 163, 184, 0.4);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Session State
-if "initialized" not in st.session_state:
-    st.session_state.initialized = False
-
-# ==================== LANDING PAGE ====================
-if not st.session_state.initialized:
-    st.markdown('<div class="landing">', unsafe_allow_html=True)
-
-    # Spinning DNA
-    st.markdown("""
-        <div class="dna-container">
-            <span style="font-size: 6.5rem;">🧬</span>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Main Title - Very clean and centered like Aston Martin
-    st.markdown('<h1 class="app-title">NMD Predictor</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">v1.0 • Tumour Suppressor Variant Interpreter</p>', unsafe_allow_html=True)
-
-    # Initialise Button
-    if st.button("INITIALISE", key="init_button"):
-        st.session_state.initialized = True
-        st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.stop()   # Important - stops the rest of the app
-    
-# ==================== MAIN APP STARTS HERE ====================
-sys.path.append(str(Path(__file__).parent))
-from data import TRANSCRIPTS, PROTEIN_DOMAINS, EXONS, EDUCATIONAL_FACTS
 
 sys.path.append(str(Path(__file__).parent))
 from data import TRANSCRIPTS, PROTEIN_DOMAINS, EXONS, EDUCATIONAL_FACTS
