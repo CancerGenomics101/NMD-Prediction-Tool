@@ -77,10 +77,12 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                 expl += f", full loss of: {', '.join(full_domains_lost)})"
             else:
                 expl += ")"
-            caveat = ""
+            caveat = ("⚠️ Full functional domain(s) lost. It is still up to the user to determine "
+                      "if these domains are biologically critical in this context. "
+                      "Consider downgrading if the domains are not essential for protein function.")
         elif partial_domains_lost or percent_lost >= 10:
             code = "O2_STR"
-            expl = f"NMD evaded, {percent_lost:.1f}% protein lost, functional domain impacted"
+            expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
             caveat = (f"⚠️ Partial loss of domain(s): {', '.join(partial_domains_lost)}. "
                       "Please review if the remaining portion of the domain is still functional "
                       "— consider downgrading to O2_Mod if the partial domain is not critical.")
@@ -353,7 +355,7 @@ with tab_report:
             mime="text/csv"
         )
 
-# === Gene Track (unchanged) ===
+# === Gene Track ===
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
