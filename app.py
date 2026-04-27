@@ -49,7 +49,7 @@ def is_canonical_splice_site_variant(hgvs_c):
             return True
     return False
 
-# === S-VIG O2 STRENGTH SUGGESTION (Updated per your request) =========================
+# === S-VIG O2 STRENGTH SUGGESTION ====================================================
 def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                            frameshift_start_codon: int = None, gene_tx_key: str = None):
     corruption_aa = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
@@ -77,16 +77,12 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                 expl += f", full loss of: {', '.join(full_domains_lost)})"
             else:
                 expl += ")"
-            # Flag ONLY if full domain loss + <10% total protein lost
-            if full_domains_lost and percent_lost < 10:
-                caveat = ("⚠️ Full functional domain(s) lost despite <10% overall protein loss. "
-                          "It is still up to the user to determine if these domains are biologically critical. "
-                          "Consider downgrading to O2_Mod if the domains are not essential.")
-            else:
-                caveat = ""
+            caveat = ""
         elif partial_domains_lost or percent_lost >= 10:
             code = "O2_STR"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
+            if partial_domains_lost:
+                expl += f", partial loss of: {', '.join(partial_domains_lost)}"
             caveat = (f"⚠️ Partial loss of domain(s): {', '.join(partial_domains_lost)}. "
                       "Please review if the remaining portion of the domain is still functional "
                       "— consider downgrading to O2_Mod if the partial domain is not critical.")
@@ -244,7 +240,7 @@ with tab_input:
                     if m_p:
                         frameshift_start_codon = int(m_p.group(1))
 
-                # ==================== CORE LOGIC (Original) ====================
+                # ==================== CORE LOGIC ====================
                 if ptc_c_pos <= current["nmd_cutoff_cdna"]:
                     nmd = "YES"
                     nmd_label = "NMD predicted"
