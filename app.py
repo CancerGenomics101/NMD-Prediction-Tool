@@ -90,7 +90,6 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
             caveat = ""
             
         elif has_domain_impact and percent_lost < 10:
-            # ← Critical case you reported
             code = "O2_STR"
             expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost, {domain_info})"
             caveat = ("⚠️ Domain(s) affected despite low overall protein loss (<10%). "
