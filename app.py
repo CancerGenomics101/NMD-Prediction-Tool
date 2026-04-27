@@ -49,7 +49,7 @@ def is_canonical_splice_site_variant(hgvs_c):
             return True
     return False
 
-# === S-VIG O2 STRENGTH SUGGESTION ====================================================
+# === S-VIG O2 STRENGTH SUGGESTION (Fixed) ========================================
 def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                            frameshift_start_codon: int = None, gene_tx_key: str = None):
     corruption_aa = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
@@ -91,8 +91,9 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
             if domain_info:
                 expl += f", {domain_info}"
-            caveat = ""
+            caveat = ""   # No warning for >=10%
         else:
+            # Only <10% loss gets the warning
             code = "O2_STR"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
             if full_domains_lost or partial_domains_lost:
@@ -355,78 +356,64 @@ with tab_report:
             mime="text/csv"
         )
 
-# === Gene Track (Scaling restored to your original behaviour) ===
+# === Gene Track (Exactly as you provided) ===
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
     nmd_cutoff_aa = current["nmd_cutoff_cdna"] // 3
-    
+   
     last = INPUT_DATA[-1]
-    variant_label = last["Variant"].split()[-1] if " " in last["Variant"] else last["Variant"]
-
+    variant_label = last["Variant"].split()[-1]
     codon_ptc = parse_p_ptc_position(last["Variant"].strip())
     ptc_aa = codon_ptc if codon_ptc else 0
-
     frameshift_start_codon = None
     if "fs" in last["Variant"].lower():
         m_p = re.search(r"p\.[A-Z][a-z]{2}?(\d+)", last["Variant"], re.IGNORECASE)
         if m_p:
             frameshift_start_codon = int(m_p.group(1))
-
     var_origin_aa = frameshift_start_codon if frameshift_start_codon else ptc_aa
     domains = get_domains(st.session_state.gene_tx_key)
-
     if domains:
         st.markdown("**Protein Domains (AA positions from UniProt):**")
         st.dataframe(pd.DataFrame(domains)[["name", "start", "end"]], hide_index=True, use_container_width=True)
-
     st.caption("⚠️ Exon boundaries are approximate visual aids based on NCBI RefSeq for these specific transcripts.")
-
     fig, ax = plt.subplots(figsize=(14, 5.5), tight_layout=True)
     y = 0
     height = 1.0
     ax.barh(y, prot_len, height=height, color="#f5f5f5", edgecolor="#666", alpha=0.8)
-
     exons = get_exons(st.session_state.gene_tx_key)
     for start, end, label in exons:
         ax.axvline(start, color="#444444", linestyle="--", linewidth=1.0, alpha=0.6)
         ax.text(start + (end - start)/2, y + 0.5, label,
                 ha="center", va="center", fontsize=9, fontweight="bold",
                 color="black", bbox=dict(facecolor="white", alpha=0.85, pad=1))
-
     for d in domains:
         width = d["end"] - d["start"] + 1
         ax.barh(y, width, left=d["start"], height=height,
-                color=d.get("color", "#1f77b4"), edgecolor="black", alpha=0.9)
+                color=d["color"], edgecolor="black", alpha=0.9)
         ax.text(d["start"] + width/2, y + 1.25, d["name"],
                 ha="center", va="bottom", fontsize=10, fontweight="bold",
                 color="white", bbox=dict(facecolor='black', alpha=0.75, pad=2))
-
     ax.barh(y, var_origin_aa, height=height*0.75, color="cornflowerblue", edgecolor="black", label="Intact")
     if var_origin_aa < prot_len:
         ax.barh(y, prot_len - var_origin_aa, left=var_origin_aa, height=height*0.75,
                 color="salmon", edgecolor="black", label="Affected")
-
-    # Original scaling restored
     ax.set_xlim(1, max(prot_len, ptc_aa + 100))
     ax.set_ylim(-5.5, 6.5)
     ax.set_yticks([])
     ax.set_xlabel("Amino Acid Position", fontsize=12, fontweight="bold")
     ax.text(5, 3.4, "Start", ha="left", va="bottom", fontsize=11)
     ax.text(prot_len, 3.4, "End", ha="right", va="bottom", fontsize=11)
-
     if nmd_cutoff_aa <= prot_len:
         ax.axvline(nmd_cutoff_aa, color="purple", linestyle=":", linewidth=3)
         ax.text(nmd_cutoff_aa, -3.8, f"NMD cutoff (AA {nmd_cutoff_aa})",
                 ha="center", va="top", fontsize=10, color="purple", fontweight="bold")
-
     ax.annotate(variant_label, xy=(var_origin_aa, 0.7), xytext=(var_origin_aa, 4.2),
                 arrowprops=dict(arrowstyle="->", color="black", lw=2),
                 ha="center", fontsize=11, fontweight="bold")
     ax.annotate("PTC", xy=(ptc_aa, -1.2), xytext=(ptc_aa, -4.8),
                 arrowprops=dict(arrowstyle="->", color="black", lw=2),
                 fontsize=11, ha="center", fontweight="bold")
-
     ax.legend(loc="upper right", fontsize=10)
     st.pyplot(fig, use_container_width=True)
 
