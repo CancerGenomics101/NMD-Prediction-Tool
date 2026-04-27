@@ -49,7 +49,7 @@ def is_canonical_splice_site_variant(hgvs_c):
             return True
     return False
 
-# === S-VIG O2 STRENGTH SUGGESTION ====================================================
+# === S-VIG O2 STRENGTH SUGGESTION (Corrected) ========================================
 def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                            frameshift_start_codon: int = None, gene_tx_key: str = None):
     corruption_aa = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
@@ -355,7 +355,7 @@ with tab_report:
             mime="text/csv"
         )
 
-# === Gene Track (Fixed Scaling) ===
+# === Gene Track (Restored to your original scaling) ===
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
@@ -407,9 +407,8 @@ if INPUT_DATA:
         ax.barh(y, prot_len - var_origin_aa, left=var_origin_aa, height=height*0.75,
                 color="salmon", edgecolor="black", label="Affected")
 
-    # Improved scaling
-    upper_limit = max(prot_len * 1.1, ptc_aa + 50, var_origin_aa + 100)
-    ax.set_xlim(1, upper_limit)
+    # Original scaling behaviour restored
+    ax.set_xlim(1, max(prot_len, ptc_aa + 100))
     ax.set_ylim(-5.5, 6.5)
     ax.set_yticks([])
     ax.set_xlabel("Amino Acid Position", fontsize=12, fontweight="bold")
