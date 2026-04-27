@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# === Enhanced CSS for Boss Modern Landing ================================
+# === CSS for Classy White Landing ========================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap');
@@ -26,20 +26,8 @@ st.markdown("""
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+        background-color: #ffffff;
         text-align: center;
-        position: relative;
-        overflow: hidden;
-        min-height: 100vh;
-    }
-
-    .landing::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: radial-gradient(circle at 20% 80%, rgba(120,119,198,0.08) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 20%, rgba(255,119,198,0.08) 0%, transparent 50%);
-        pointer-events: none;
     }
 
     .dna-spin {
@@ -47,8 +35,6 @@ st.markdown("""
         margin-bottom: 30px;
         animation: spin 12s linear infinite;
         display: inline-block;
-        position: relative;
-        z-index: 2;
     }
 
     @keyframes spin {
@@ -64,22 +50,6 @@ st.markdown("""
         text-transform: uppercase;
         color: #111111;
         margin: 0;
-        position: relative;
-        z-index: 2;
-        text-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    }
-
-    .app-title::after {
-        content: '';
-        position: absolute;
-        bottom: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 60px;
-        height: 4px;
-        background: linear-gradient(90deg, #111, #444);
-        border-radius: 2px;
-        z-index: 2;
     }
 
     .subtitle {
@@ -87,12 +57,9 @@ st.markdown("""
         font-size: 1.45rem;
         color: #444444;
         margin-top: 15px;
-        margin-bottom: 30px;
+        margin-bottom: 60px;
         letter-spacing: 0.12em;
         font-weight: 300;
-        position: relative;
-        z-index: 2;
-        max-width: 600px;
     }
 
     .init-button {
@@ -107,29 +74,11 @@ st.markdown("""
         cursor: pointer;
         transition: all 0.3s ease;
         text-transform: uppercase;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-        position: relative;
-        z-index: 2;
     }
 
     .init-button:hover {
-        background: linear-gradient(145deg, #222, #111);
-        box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+        background-color: #333333;
         transform: translateY(-4px);
-    }
-
-    @keyframes pulse {
-        0%, 100% { transform: translateY(-4px) scale(1); }
-        50% { transform: translateY(-6px) scale(1.02); }
-    }
-
-    .init-button:active {
-        animation: pulse 0.3s ease;
-    }
-
-    /* Ensure content stays above overlays */
-    .st-emotion-cache-1bw9act {
-        z-index: 1 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -138,7 +87,7 @@ st.markdown("""
 if "initialized" not in st.session_state:
     st.session_state.initialized = False
 
-# ==================== ENHANCED LANDING PAGE ====================
+# ==================== LANDING PAGE ====================
 if not st.session_state.initialized:
     st.markdown('<div class="landing">', unsafe_allow_html=True)
     
@@ -147,16 +96,13 @@ if not st.session_state.initialized:
     st.markdown('<h1 class="app-title">NMD Predictor</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">v1.0 • Tumour Suppressor Variant Interpreter</p>', unsafe_allow_html=True)
     
-    # Floating DNA particles (built-in Streamlit snow with DNA emoji)
-    st.snow(emoji="🧬")
-    
     if st.button("INITIALISE", key="init_button"):
         st.session_state.initialized = True
         st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    st.stop()  # Stops the app here until Initialise is clicked
+    st.stop()   # ← This stops the app here until Initialise is clicked
 
 # ==================== APP STARTS HERE ====================
 sys.path.append(str(Path(__file__).parent))
