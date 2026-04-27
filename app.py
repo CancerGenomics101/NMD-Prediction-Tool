@@ -12,10 +12,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Add current directory to path
 sys.path.append(str(Path(__file__).parent))
-
-# Import data from data.py
 from data import TRANSCRIPTS, PROTEIN_DOMAINS, EXONS, EDUCATIONAL_FACTS
 
 # === Helper Functions ================================================================
@@ -52,36 +49,27 @@ def is_canonical_splice_site_variant(hgvs_c):
             return True
     return False
 
-# === S-VIG O2 STRENGTH SUGGESTION (Improved with full vs partial domain logic) ========
+# === S-VIG O2 STRENGTH SUGGESTION ====================================================
 def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int, 
                            frameshift_start_codon: int = None, gene_tx_key: str = None):
-    """
-    Returns (svig_code, explanation, caveat) following SVIG-UK O2 guidelines.
-    """
     corruption_aa = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
     percent_lost = max(0.0, 1.0 - corruption_aa / prot_len) * 100
 
     domains = get_domains(gene_tx_key)
-    
     full_domains_lost = []
     partial_domains_lost = []
 
     for d in domains:
-        domain_start = d["start"]
-        domain_end = d["end"]
-        
-        if corruption_aa <= domain_start:
+        if corruption_aa <= d["start"]:
             full_domains_lost.append(d["name"])
-        elif corruption_aa < domain_end and corruption_aa > domain_start:
+        elif corruption_aa < d["end"]:
             partial_domains_lost.append(d["name"])
 
     if ptc_c_pos <= nmd_cutoff:
-        # NMD predicted
         code = "O2_VSTR"
         expl = "NMD predicted → Very Strong"
         caveat = ""
     else:
-        # NMD evaded
         if full_domains_lost or percent_lost >= 15:
             code = "O2_STR"
             expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost"
@@ -93,12 +81,9 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
         elif partial_domains_lost or percent_lost >= 10:
             code = "O2_STR"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
-            if partial_domains_lost:
-                caveat = (f"⚠️ Partial loss of domain(s): {', '.join(partial_domains_lost)}. "
-                          "Please manually review whether the remaining portion of the domain is still functional. "
-                          "Consider downgrading to O2_Mod if the partial domain is not critical.")
-            else:
-                caveat = ""
+            caveat = (f"⚠️ Partial loss of domain(s): {', '.join(partial_domains_lost)}. "
+                      "Please review if the remaining portion of the domain is still functional "
+                      "— consider downgrading to O2_Mod if the partial domain is not critical.")
         elif percent_lost >= 5:
             code = "O2_Mod"
             expl = f"NMD evaded, moderate C-terminal truncation ({percent_lost:.1f}%)"
@@ -210,7 +195,6 @@ with tab_input:
                 st.divider()
                 st.markdown(f"**Variant #{i+1}:** `{line}`")
 
-                # === SPLICE SITE CHECK ===
                 c_part = re.search(r"c\.[^ ]*", line, re.IGNORECASE)
                 c_str = c_part.group() if c_part else ""
 
@@ -225,7 +209,7 @@ with tab_input:
                     """, unsafe_allow_html=True)
                     continue
 
-                # ==================== NORMAL PROCESSING ====================
+                # Normal processing
                 ptc_c_pos, err = hgvs_to_ptc_c_pos(line)
                 if err:
                     st.error(f"Parsing error: {err}")
@@ -254,8 +238,9 @@ with tab_input:
                     if m_p:
                         frameshift_start_codon = int(m_p.group(1))
 
-                # ==================== CORE LOGIC ====================
+                # ==================== CORE LOGIC (Original) ====================
                 if ptc_c_pos <= current["nmd_cutoff_cdna"]:
+                    nmd = "YES"
                     nmd_label = "NMD predicted"
                     impact = "Full loss (NMD) – 100% of protein lost"
                     fraction_lost = 1.0
@@ -263,19 +248,41 @@ with tab_input:
                     extra = "<span style='color:green; font-weight:bold'>DRIVER</span>"
                     card_color = "🟢"
                 elif ptc_c_pos > cds_end:
+                    nmd = "NO"
                     nmd_label = "Extended / chimera‑like"
                     impact = "Extended protein (3′ UTR PTC)"
+                    if frameshift_start_codon is not None:
+                        fraction_corrupted = max(0.0, 1.0 - (frameshift_start_codon - 1) / prot_len)
+                        perc_text = f"{fraction_corrupted*100:.1f}%"
+                        impact += f" – {perc_text} of canonical protein corrupted by frameshift"
+                    else:
+                        ptc_codon = ptc_c_pos // 3
+                        fraction_corrupted = max(0.0, 1.0 - (ptc_codon - 1) / prot_len)
+                        perc_text = f"{fraction_corrupted*100:.1f}%"
+                        impact += f" – {perc_text} of canonical protein corrupted by frameshift"
+                    extra = (
+                        "<span style='color:orange; font-weight:bold'>"
+                        "Chimera‑like construct generated. Possible driver – "
+                        "please consider % of the canonical protein compromised and downstream loss of function (LOF) variants."
+                        "</span>"
+                    )
+                    card_color = "🧬"
                     fraction_lost = 0.0
                     perc_lost = 0.0
-                    extra = "<span style='color:orange; font-weight:bold'>Chimera‑like construct generated. Possible driver.</span>"
-                    card_color = "🧬"
                 else:
+                    nmd = "NO"
                     nmd_label = "Truncated protein"
                     impact = "Truncated protein"
                     corruption_position = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
                     fraction_lost = max(0.0, 1.0 - corruption_position / prot_len)
                     perc_lost = fraction_lost * 100
-                    extra = "<span style='color:orange; font-weight:bold'>Possible driver variant – requires further assessment.</span>"
+                    extra = (
+                        "<span style='color:orange; font-weight:bold'>"
+                        "Possible driver variant – requires assessment of the % of the canonical "
+                        "protein compromised and database evidence, including downstream loss of "
+                        "function (LOF) variants"
+                        "</span>"
+                    )
                     card_color = "🟠"
 
                 # Colored Result Card
@@ -292,10 +299,9 @@ with tab_input:
 
                 st.markdown(extra, unsafe_allow_html=True)
 
-                # ====================== S-VIG O2 SUGGESTION ======================
+                # S-VIG O2
                 svig_code, svig_expl, svig_caveat = get_svig_o2_suggestion(
-                    ptc_c_pos, prot_len, current["nmd_cutoff_cdna"],
-                    frameshift_start_codon, current["gene_tx_key"]
+                    ptc_c_pos, prot_len, current["nmd_cutoff_cdna"], frameshift_start_codon, current["gene_tx_key"]
                 )
 
                 st.markdown(f"""
@@ -308,7 +314,7 @@ with tab_input:
                 if svig_caveat:
                     st.warning(svig_caveat)
 
-                # Report data collection
+                # Report data
                 INPUT_DATA.append({
                     "Variant": line,
                     "Gene": current["gene"],
@@ -347,7 +353,7 @@ with tab_report:
             mime="text/csv"
         )
 
-# === Gene Track ===
+# === Gene Track (unchanged) ===
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
