@@ -49,20 +49,15 @@ def is_canonical_splice_site_variant(hgvs_c):
             return True
     return False
 
-# === S-VIG O2 STRENGTH SUGGESTION ====================================================
+# === S-VIG O2 STRENGTH SUGGESTION (Simplified & Aligned with PVS1) ===
 def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                            frameshift_start_codon: int = None, gene_tx_key: str = None):
     corruption_aa = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
     percent_lost = max(0.0, 1.0 - corruption_aa / prot_len) * 100
    
     domains = get_domains(gene_tx_key)
-    full_domains_lost = []
-    partial_domains_lost = []
-    for d in domains:
-        if corruption_aa <= d["start"]:
-            full_domains_lost.append(d["name"])
-        elif corruption_aa < d["end"]:
-            partial_domains_lost.append(d["name"])
+    full_domains_lost = [d["name"] for d in domains if corruption_aa <= d["start"]]
+    partial_domains_lost = [d["name"] for d in domains if d["start"] < corruption_aa < d["end"]]
     
     domain_info = ""
     if full_domains_lost:
@@ -75,46 +70,31 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
     has_domain_impact = bool(full_domains_lost or partial_domains_lost)
 
     if ptc_c_pos <= nmd_cutoff:
-        code = "O2_VSTR"
-        expl = "NMD predicted → Very Strong"
+        return "O2_VSTR", "NMD predicted → Very Strong", ""
+
+    # NMD-evaded cases
+    if percent_lost > 10 or has_domain_impact:
+        code = "O2_STR"
+        if has_domain_impact and percent_lost <= 10:
+            expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost, {domain_info})"
+            caveat = ("⚠️ Domain(s) affected despite low overall protein loss (≤10%). "
+                      "Please review whether the affected domain(s) are biologically critical. "
+                      "Consider downgrading to O2_Mod if they are not essential.")
+        else:
+            expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost"
+            if domain_info:
+                expl += f", {domain_info})"
+            else:
+                expl += ")"
+            caveat = ""
+    elif percent_lost >= 5:
+        code = "O2_Mod"
+        expl = f"NMD evaded, minor impact ({percent_lost:.1f}% protein lost)"
         caveat = ""
     else:
-        # === NEW LOGIC (aligned with SVIG-UK / PVS1 decision tree) ===
-        if percent_lost >= 15 or has_domain_impact:
-            # High loss or any domain hit = Strong (with caveat only for the low-% domain case)
-            code = "O2_STR"
-            if has_domain_impact and percent_lost < 10:
-                expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost, {domain_info})"
-                caveat = ("⚠️ Domain(s) affected despite low overall protein loss (<10%). "
-                          "Please review whether the affected domain(s) are biologically critical. "
-                          "Consider downgrading to O2_Mod if they are not essential.")
-            else:
-                expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost"
-                if domain_info:
-                    expl += f", {domain_info})"
-                else:
-                    expl += ")"
-                caveat = ""
-
-        elif percent_lost >= 10:
-            # 10–14.9% loss, no domain impact = Strong
-            code = "O2_STR"
-            expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
-            if domain_info:
-                expl += f", {domain_info}"
-            caveat = ""
-
-        elif percent_lost >= 5:
-            # 5–9.9% loss, no domain impact = Moderate (this is the main change you wanted)
-            code = "O2_Mod"
-            expl = f"NMD evaded, minor impact ({percent_lost:.1f}% protein lost)"
-            caveat = ""
-
-        else:
-            # <5% loss, no domain impact = Supporting (rare, but still useful for very C-terminal tails)
-            code = "O2_Supp"
-            expl = f"NMD evaded, very minor impact ({percent_lost:.1f}% protein lost)"
-            caveat = ""
+        code = "O2_Supp"
+        expl = f"NMD evaded, very minor impact ({percent_lost:.1f}% protein lost)"
+        caveat = ""
 
     return code, expl, caveat
 
