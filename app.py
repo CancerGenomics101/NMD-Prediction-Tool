@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Add current directory to path (helps on Streamlit Cloud / some environments)
+# Add current directory to path
 sys.path.append(str(Path(__file__).parent))
 
 # Import data from data.py
@@ -35,6 +35,26 @@ def get_domains(gene_tx_key):
 
 def get_exons(gene_tx_key):
     return EXONS.get(gene_tx_key, [])
+
+# === SPLICE SITE DETECTION ===========================================================
+def is_canonical_splice_site_variant(hgvs_c):
+    """Return True if the variant directly affects a canonical splice site (±1/±2)."""
+    if not hgvs_c:
+        return False
+    
+    # Look for splice site positions in c. notation
+    splice_patterns = [
+        r"[cC]\.\d+[+-][12]",           # c.123+1, c.123-1, c.123+2, c.123-2
+        r"[cC]\.\d+_\d+[+-][12]",       # deletions/insertions crossing boundary e.g. c.1420_1429+1del
+        r"[cC]\.\d+[+-]\d+_\d+",        # other boundary spanning
+        r"[+-][12][delinsdup]",         # +1del, +2dup etc.
+    ]
+    
+    hgvs_lower = hgvs_c.lower()
+    for pattern in splice_patterns:
+        if re.search(pattern, hgvs_lower):
+            return True
+    return False
 
 # === HGVS PARSING ========================================================================
 def extract_c_pos_from_c_hgvs(hgvs_c):
@@ -63,20 +83,25 @@ def hgvs_to_ptc_c_pos(hgvs_str):
     hgvs_str = hgvs_str.strip()
     if not hgvs_str:
         return None, "Empty string"
+    
     c_match = re.search(r"c\.\d+.*", hgvs_str, re.IGNORECASE)
     if not c_match:
         return None, "No c. part found"
+    
     c_str = c_match.group()
     c_start = extract_c_pos_from_c_hgvs(c_str)
     if c_start is None:
         return None, "Failed to parse c. position"
+    
     p_match = re.search(r"p\.[^ ]*", hgvs_str, re.IGNORECASE)
     if not p_match:
         return None, "No p. part found"
+    
     p_str = p_match.group()
     ptc_codon = parse_p_ptc_position(p_str)
     if ptc_codon is None:
         return None, "Failed to parse p. frameshift/stop"
+    
     ptc_c_pos = 3 * ptc_codon
     return ptc_c_pos, None
 
@@ -89,13 +114,12 @@ INPUT_DATA = []
 
 with tab_input:
     st.markdown("""
-    **Ownership and use notice:**
-    This NMD Predictor is an in‑house tool developed by **Ashley Sunderland**.
-    You may use it for internal educational and analytical purposes, but reproduction, redistribution, or commercial use without prior written permission is not permitted.
+    **Ownership and use notice:**  
+    This NMD Predictor is an in‑house tool developed by **Ashley Sunderland**.  
+    You may use it for internal educational and analytical purposes, but reproduction, redistribution, or commercial use without prior written permission is not permitted.  
     This tool is intended for **education and research only** and is **NOT intended for diagnostic purposes**.
     """, unsafe_allow_html=True)
 
-    # Alphabetical sorting
     sorted_genes = sorted(TRANSCRIPTS.keys())
     gene_tx_key = st.selectbox(
         "Select gene and transcript:",
@@ -116,7 +140,6 @@ with tab_input:
         - **Transcript:** {current['transcript']}
         - **NMD cutoff:** cDNA position ≤ {current['nmd_cutoff_cdna']} → NMD predicted
         - **Protein length:** {current['protein_length_aa']} aa
-        (CDS ≈ {current['reference_mrna_len']} bp, no premature stop.)
         """)
 
         st.markdown(
@@ -128,17 +151,33 @@ with tab_input:
 
         input_text = st.text_area(
             "Paste HGVS variant (c. and p.):",
-            height=60,
+            height=100,
         )
 
         if not input_text.strip():
             st.info("Paste a variant in the box above (e.g., `c.424_425del p.Arg143Thrfs*110`).")
         else:
             hgvs_lines = [line.strip() for line in input_text.split("\n") if line.strip()]
+
             for i, line in enumerate(hgvs_lines):
                 st.divider()
                 st.markdown(f"**Variant #{i+1}:** `{line}`")
 
+                # === SPLICE SITE CHECK (NEW) ===
+                c_part = re.search(r"c\.[^ ]*", line, re.IGNORECASE)
+                c_str = c_part.group() if c_part else ""
+                
+                if is_canonical_splice_site_variant(c_str):
+                    st.error("""
+                    <div style="background-color:#ffe6e6; padding:15px; border-radius:8px; border:2px solid #ff4444;">
+                        <strong>⚠️ Warning, further analysis not possible.</strong><br>
+                        This variant impacts a canonical splice site.<br>
+                        Please analyse this variant as a splice consequence.
+                    </div>
+                    """, unsafe_allow_html=True)
+                    continue  # Skip all downstream analysis
+
+                # === Normal processing continues only if NOT a splice site variant ===
                 ptc_c_pos, err = hgvs_to_ptc_c_pos(line)
                 if err:
                     st.error(f"Parsing error: {err}")
@@ -160,7 +199,7 @@ with tab_input:
 
                 # Parse frameshift start position
                 frameshift_start_codon = None
-                if "fs" in line:
+                if "fs" in line.lower():
                     m_p = re.search(
                         r"p\.[A-Z][a-z]{2}?(\d+)([A-Z][a-z]{2})?fs(?:Ter|\*)?(\d+)",
                         line,
@@ -178,7 +217,6 @@ with tab_input:
                     perc_lost = 100.0
                     extra = "<span style='color:green; font-weight:bold'>DRIVER</span>"
                     card_color = "🟢"
-
                 elif ptc_c_pos > cds_end:
                     nmd = "NO"
                     nmd_label = "Extended / chimera‑like"
@@ -201,18 +239,13 @@ with tab_input:
                     card_color = "🧬"
                     fraction_lost = 0.0
                     perc_lost = 0.0
-
                 else:
-                    # FIXED: Calculate protein loss from frameshift start (not from the distant PTC)
                     nmd = "NO"
                     nmd_label = "Truncated protein"
                     impact = "Truncated protein"
-
-                    # Use frameshift start for fs variants, otherwise use stop position
                     corruption_position = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
                     fraction_lost = max(0.0, 1.0 - corruption_position / prot_len)
                     perc_lost = fraction_lost * 100
-
                     extra = (
                         "<span style='color:orange; font-weight:bold'>"
                         "Possible driver variant – requires assessment of the % of the canonical "
@@ -268,10 +301,12 @@ with tab_report:
             "Mechanism / driver note", "Protein impact"
         ]].copy()
         st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
         st.divider()
         st.markdown("**CSV‑style summary (for copy‑paste):**")
         st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment",
                     "Mechanism / driver note", "Protein impact"]].to_csv(index=False))
+        
         csv = df.to_csv(index=False)
         st.download_button(
             label="📥 Download Full Report as CSV",
@@ -280,40 +315,45 @@ with tab_report:
             mime="text/csv"
         )
 
-# --- Gene Track ---
+# --- Gene Track (only for last valid variant) ---
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
     nmd_cutoff_aa = current["nmd_cutoff_cdna"] // 3
-   
+    
     last = INPUT_DATA[-1]
     variant_label = last["Variant"].split()[-1]
-  
+
     codon_ptc = parse_p_ptc_position(last["Variant"].strip())
     ptc_aa = codon_ptc if codon_ptc else 0
-  
+
     frameshift_start_codon = None
-    if "fs" in last["Variant"]:
+    if "fs" in last["Variant"].lower():
         m_p = re.search(r"p\.[A-Z][a-z]{2}?(\d+)", last["Variant"], re.IGNORECASE)
         if m_p:
             frameshift_start_codon = int(m_p.group(1))
-  
+
     var_origin_aa = frameshift_start_codon if frameshift_start_codon else ptc_aa
     domains = get_domains(st.session_state.gene_tx_key)
+
     if domains:
         st.markdown("**Protein Domains (AA positions from UniProt):**")
         st.dataframe(pd.DataFrame(domains)[["name", "start", "end"]], hide_index=True, use_container_width=True)
+
     st.caption("⚠️ Exon boundaries are approximate visual aids based on NCBI RefSeq for these specific transcripts.")
+
     fig, ax = plt.subplots(figsize=(14, 5.5), tight_layout=True)
     y = 0
     height = 1.0
     ax.barh(y, prot_len, height=height, color="#f5f5f5", edgecolor="#666", alpha=0.8)
+
     exons = get_exons(st.session_state.gene_tx_key)
     for start, end, label in exons:
         ax.axvline(start, color="#444444", linestyle="--", linewidth=1.0, alpha=0.6)
         ax.text(start + (end - start)/2, y + 0.5, label,
                 ha="center", va="center", fontsize=9, fontweight="bold",
                 color="black", bbox=dict(facecolor="white", alpha=0.85, pad=1))
+
     for d in domains:
         width = d["end"] - d["start"] + 1
         ax.barh(y, width, left=d["start"], height=height,
@@ -321,26 +361,31 @@ if INPUT_DATA:
         ax.text(d["start"] + width/2, y + 1.25, d["name"],
                 ha="center", va="bottom", fontsize=10, fontweight="bold",
                 color="white", bbox=dict(facecolor='black', alpha=0.75, pad=2))
+
     ax.barh(y, var_origin_aa, height=height*0.75, color="cornflowerblue", edgecolor="black", label="Intact")
     if var_origin_aa < prot_len:
         ax.barh(y, prot_len - var_origin_aa, left=var_origin_aa, height=height*0.75,
                 color="salmon", edgecolor="black", label="Affected")
+
     ax.set_xlim(1, max(prot_len, ptc_aa + 100))
     ax.set_ylim(-5.5, 6.5)
     ax.set_yticks([])
     ax.set_xlabel("Amino Acid Position", fontsize=12, fontweight="bold")
     ax.text(5, 3.4, "Start", ha="left", va="bottom", fontsize=11)
     ax.text(prot_len, 3.4, "End", ha="right", va="bottom", fontsize=11)
+
     if nmd_cutoff_aa <= prot_len:
         ax.axvline(nmd_cutoff_aa, color="purple", linestyle=":", linewidth=3)
         ax.text(nmd_cutoff_aa, -3.8, f"NMD cutoff (AA {nmd_cutoff_aa})",
                 ha="center", va="top", fontsize=10, color="purple", fontweight="bold")
+
     ax.annotate(variant_label, xy=(var_origin_aa, 0.7), xytext=(var_origin_aa, 4.2),
                 arrowprops=dict(arrowstyle="->", color="black", lw=2),
                 ha="center", fontsize=11, fontweight="bold")
     ax.annotate("PTC", xy=(ptc_aa, -1.2), xytext=(ptc_aa, -4.8),
                 arrowprops=dict(arrowstyle="->", color="black", lw=2),
                 fontsize=11, ha="center", fontweight="bold")
+
     ax.legend(loc="upper right", fontsize=10)
     st.pyplot(fig, use_container_width=True)
 
