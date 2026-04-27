@@ -72,12 +72,15 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
             domain_info += ", "
         domain_info += f"partial loss of: {', '.join(partial_domains_lost)}"
 
+    has_domain_impact = bool(full_domains_lost or partial_domains_lost)
+
     if ptc_c_pos <= nmd_cutoff:
         code = "O2_VSTR"
         expl = "NMD predicted → Very Strong"
         caveat = ""
     else:
-        if full_domains_lost or percent_lost >= 15:
+        if percent_lost >= 15:
+            # High protein loss = Strong, no caveat regardless of domains
             code = "O2_STR"
             expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost"
             if domain_info:
@@ -85,24 +88,27 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
             else:
                 expl += ")"
             caveat = ""
+            
+        elif has_domain_impact and percent_lost < 10:
+            # ← Critical case you reported
+            code = "O2_STR"
+            expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost, {domain_info})"
+            caveat = ("⚠️ Domain(s) affected despite low overall protein loss (<10%). "
+                      "Please review whether the affected domain(s) are biologically critical. "
+                      "Consider downgrading to O2_Mod if they are not essential.")
+            
         elif percent_lost >= 10:
+            # 10% or more but <15%, with or without domains
             code = "O2_STR"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
             if domain_info:
                 expl += f", {domain_info}"
             caveat = ""
         else:
+            # Low loss, no domain impact
             code = "O2_STR"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
-            if domain_info:
-                expl += f", {domain_info}"
-            # Only show warning when <10% loss AND domain affected
-            if full_domains_lost or partial_domains_lost:
-                caveat = ("⚠️ Domain(s) affected despite low overall protein loss (<10%). "
-                          "Please review whether the affected domain(s) are biologically critical. "
-                          "Consider downgrading to O2_Mod if they are not essential.")
-            else:
-                caveat = ""
+            caveat = ""
 
     return code, expl, caveat
 
