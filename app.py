@@ -42,12 +42,11 @@ def is_canonical_splice_site_variant(hgvs_c):
     if not hgvs_c:
         return False
     
-    # Look for splice site positions in c. notation
     splice_patterns = [
-        r"[cC]\.\d+[+-][12]",           # c.123+1, c.123-1, c.123+2, c.123-2
-        r"[cC]\.\d+_\d+[+-][12]",       # deletions/insertions crossing boundary e.g. c.1420_1429+1del
-        r"[cC]\.\d+[+-]\d+_\d+",        # other boundary spanning
-        r"[+-][12][delinsdup]",         # +1del, +2dup etc.
+        r"[cC]\.\d+[+-][12]",           
+        r"[cC]\.\d+_\d+[+-][12]",       
+        r"[cC]\.\d+[+-]\d+_\d+",        
+        r"[+-][12][delinsdup]",         
     ]
     
     hgvs_lower = hgvs_c.lower()
@@ -163,21 +162,22 @@ with tab_input:
                 st.divider()
                 st.markdown(f"**Variant #{i+1}:** `{line}`")
 
-                # === SPLICE SITE CHECK (NEW) ===
+                # === SPLICE SITE CHECK ===
                 c_part = re.search(r"c\.[^ ]*", line, re.IGNORECASE)
                 c_str = c_part.group() if c_part else ""
                 
                 if is_canonical_splice_site_variant(c_str):
-                    st.error("""
-                    <div style="background-color:#ffe6e6; padding:15px; border-radius:8px; border:2px solid #ff4444;">
-                        <strong>⚠️ Warning, further analysis not possible.</strong><br>
-                        This variant impacts a canonical splice site.<br>
+                    st.markdown("""
+                    <div style="background-color:#ffe6e6; padding:20px; border-radius:10px; 
+                                border:3px solid #ff4444; margin:10px 0;">
+                        <h4 style="color:#cc0000; margin:0 0 8px 0;">⚠️ Warning, further analysis not possible.</h4>
+                        <strong>This variant impacts a canonical splice site.</strong><br>
                         Please analyse this variant as a splice consequence.
                     </div>
                     """, unsafe_allow_html=True)
-                    continue  # Skip all downstream analysis
+                    continue  # Skip rest of analysis
 
-                # === Normal processing continues only if NOT a splice site variant ===
+                # === Normal processing ===
                 ptc_c_pos, err = hgvs_to_ptc_c_pos(line)
                 if err:
                     st.error(f"Parsing error: {err}")
@@ -197,7 +197,6 @@ with tab_input:
                 prot_len = current["protein_length_aa"]
                 cds_end = 3 * prot_len
 
-                # Parse frameshift start position
                 frameshift_start_codon = None
                 if "fs" in line.lower():
                     m_p = re.search(
@@ -290,6 +289,7 @@ with tab_input:
                     "Extra": extra,
                 })
 
+# Report Tab (unchanged)
 with tab_report:
     if not INPUT_DATA:
         st.info("Paste and run variants in the 'Input' tab to generate a structured report.")
@@ -315,7 +315,7 @@ with tab_report:
             mime="text/csv"
         )
 
-# --- Gene Track (only for last valid variant) ---
+# Gene Track (only for last valid variant) - unchanged
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
@@ -389,12 +389,11 @@ if INPUT_DATA:
     ax.legend(loc="upper right", fontsize=10)
     st.pyplot(fig, use_container_width=True)
 
-# === EDUCATIONAL FACT ===
+# Educational Fact & Footer
 st.markdown("---")
 fact = random.choice(EDUCATIONAL_FACTS)
 st.info(f"💡 **Did you know?** {fact}")
 
-# Footer
 st.markdown(
     "<p style='font-size:12px; color:#888; text-align:center; margin-top:20px;'>"
     "© 2026 Ashley Sunderland • NMD Predictor (educational use only, no reproduction without permission)."
