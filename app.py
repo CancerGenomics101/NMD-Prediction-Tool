@@ -72,7 +72,7 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
     else:
         if full_domains_lost or percent_lost >= 15:
             code = "O2_STR"
-            expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost"
+            expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost, functional domain impacted"
             if full_domains_lost:
                 expl += f", full loss of: {', '.join(full_domains_lost)})"
             else:
