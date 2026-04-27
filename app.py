@@ -96,7 +96,7 @@ if not st.session_state.initialized:
     st.markdown('<h1 class="app-title">NMD Predictor</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">v1.0 • Tumour Suppressor Variant Interpreter</p>', unsafe_allow_html=True)
     
-    if st.button("INITIALISE", key="init_button"):
+    if st.button("**INITIALISE**", key="init_button"):
         st.session_state.initialized = True
         st.rerun()
     
