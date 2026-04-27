@@ -54,30 +54,29 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
                            frameshift_start_codon: int = None, gene_tx_key: str = None):
     corruption_aa = frameshift_start_codon if frameshift_start_codon is not None else (ptc_c_pos // 3)
     percent_lost = max(0.0, 1.0 - corruption_aa / prot_len) * 100
-
+    
     domains = get_domains(gene_tx_key)
     full_domains_lost = []
     partial_domains_lost = []
-
     for d in domains:
         if corruption_aa <= d["start"]:
             full_domains_lost.append(d["name"])
         elif corruption_aa < d["end"]:
             partial_domains_lost.append(d["name"])
 
+    domain_info = ""
+    if full_domains_lost:
+        domain_info += f"full loss of: {', '.join(full_domains_lost)}"
+    if partial_domains_lost:
+        if domain_info:
+            domain_info += ", "
+        domain_info += f"partial loss of: {', '.join(partial_domains_lost)}"
+
     if ptc_c_pos <= nmd_cutoff:
         code = "O2_VSTR"
         expl = "NMD predicted → Very Strong"
         caveat = ""
     else:
-        domain_info = ""
-        if full_domains_lost:
-            domain_info += f"full loss of: {', '.join(full_domains_lost)}"
-        if partial_domains_lost:
-            if domain_info:
-                domain_info += ", "
-            domain_info += f"partial loss of: {', '.join(partial_domains_lost)}"
-
         if full_domains_lost or percent_lost >= 15:
             code = "O2_STR"
             expl = f"NMD evaded but significant impact ({percent_lost:.1f}% lost"
@@ -95,13 +94,18 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
         else:
             code = "O2_STR"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
-            if full_domains_lost or partial_domains_lost:
+            if domain_info:
                 expl += f", {domain_info}"
-            caveat = ("⚠️ Domain(s) affected despite low overall protein loss (<10%). "
-                      "Please review whether the affected domain(s) are biologically critical. "
-                      "Consider downgrading to O2_Mod if they are not essential.")
-        
+            # Only show warning when <10% loss AND domain affected
+            if full_domains_lost or partial_domains_lost:
+                caveat = ("⚠️ Domain(s) affected despite low overall protein loss (<10%). "
+                          "Please review whether the affected domain(s) are biologically critical. "
+                          "Consider downgrading to O2_Mod if they are not essential.")
+            else:
+                caveat = ""
+
     return code, expl, caveat
+
 
 # === HGVS PARSING ========================================================================
 def extract_c_pos_from_c_hgvs(hgvs_c):
@@ -146,6 +150,7 @@ def hgvs_to_ptc_c_pos(hgvs_str):
         return None, "Failed to parse p. frameshift/stop"
     ptc_c_pos = 3 * ptc_codon
     return ptc_c_pos, None
+
 
 # === STREAMLIT LAYOUT ====================================================================
 st.markdown("<h1>NMD Predictor v1.0</h1>", unsafe_allow_html=True)
@@ -198,14 +203,12 @@ with tab_input:
 
         if input_text.strip():
             hgvs_lines = [line.strip() for line in input_text.split("\n") if line.strip()]
-
             for i, line in enumerate(hgvs_lines):
                 st.divider()
                 st.markdown(f"**Variant #{i+1}:** `{line}`")
 
                 c_part = re.search(r"c\.[^ ]*", line, re.IGNORECASE)
                 c_str = c_part.group() if c_part else ""
-
                 if is_canonical_splice_site_variant(c_str):
                     st.markdown("""
                     <div style="background-color:#ffe6e6; padding:20px; border-radius:10px;
@@ -234,7 +237,6 @@ with tab_input:
 
                 prot_len = current["protein_length_aa"]
                 cds_end = 3 * prot_len
-
                 frameshift_start_codon = None
                 if "fs" in line.lower():
                     m_p = re.search(
@@ -341,12 +343,12 @@ with tab_report:
             "Mechanism / driver note", "Protein impact", "S-VIG O2"
         ]].copy()
         st.dataframe(display_df, use_container_width=True, hide_index=True)
-        
+       
         st.divider()
         st.markdown("**CSV‑style summary (for copy‑paste):**")
         st.text(df[["Variant", "Gene", "Transcript", "NMD", "Assessment",
                     "Mechanism / driver note", "Protein impact", "S-VIG O2"]].to_csv(index=False))
-        
+       
         csv = df.to_csv(index=False)
         st.download_button(
             label="📥 Download Full Report as CSV",
@@ -355,12 +357,12 @@ with tab_report:
             mime="text/csv"
         )
 
-# === Gene Track (Exactly your original block) ===
+# === Gene Track ===
 if INPUT_DATA:
     current = get_params(st.session_state.gene_tx_key)
     prot_len = current["protein_length_aa"]
     nmd_cutoff_aa = current["nmd_cutoff_cdna"] // 3
-   
+  
     last = INPUT_DATA[-1]
     variant_label = last["Variant"].split()[-1]
     codon_ptc = parse_p_ptc_position(last["Variant"].strip())
