@@ -6,11 +6,102 @@ import random
 import sys
 from pathlib import Path
 
-# === Configure page layout (full width) ==================================================
+# === Configure page layout + Fancy Landing Page =============================
 st.set_page_config(
     page_title="NMD Predictor v1.0",
     layout="wide",
+    initial_sidebar_state="collapsed",   # Cleaner landing
 )
+
+# === Luxury Landing Page CSS (Aston Martin inspired) ========================
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap');
+
+    .landing-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 92vh;
+        background: linear-gradient(135deg, #0f172a 0%, #1e2937 100%);
+        color: white;
+        text-align: center;
+    }
+    
+    .app-title {
+        font-family: 'Cinzel', serif;
+        font-size: 5.2rem;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        margin-bottom: 1rem;
+        background: linear-gradient(90deg, #f8fafc, #cbd5e1, #f8fafc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    }
+    
+    .subtitle {
+        font-family: 'Inter', sans-serif;
+        font-size: 1.45rem;
+        font-weight: 300;
+        color: #94a3b8;
+        margin-bottom: 4.5rem;
+        letter-spacing: 0.08em;
+    }
+    
+    .init-button {
+        background: linear-gradient(90deg, #334155, #475569);
+        color: white;
+        border: none;
+        padding: 20px 60px;
+        font-size: 1.4rem;
+        font-weight: 600;
+        font-family: 'Inter', sans-serif;
+        letter-spacing: 0.12em;
+        border-radius: 60px;
+        cursor: pointer;
+        transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+        box-shadow: 0 15px 35px rgba(15, 23, 42, 0.5);
+        text-transform: uppercase;
+    }
+    
+    .init-button:hover {
+        transform: translateY(-6px) scale(1.06);
+        box-shadow: 0 25px 50px rgba(15, 23, 42, 0.6);
+        background: linear-gradient(90deg, #475569, #334155);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Session state to control landing screen
+if "initialized" not in st.session_state:
+    st.session_state.initialized = False
+
+# ==================== LANDING PAGE ====================
+if not st.session_state.initialized:
+    st.markdown('<div class="landing-container">', unsafe_allow_html=True)
+    
+    st.markdown('<h1 class="app-title">NMD PREDICTOR</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">v1.0 • Tumour Suppressor Variant Interpreter</p>', unsafe_allow_html=True)
+    
+    if st.button("INITIALISE", key="init_button"):
+        st.session_state.initialized = True
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown(
+        "<p style='text-align:center; color:#64748b; margin-top:100px; font-size:0.95rem;'>"
+        "Educational & Research Tool Only • Developed by Ashley Sunderland</p>",
+        unsafe_allow_html=True
+    )
+    
+    st.stop()   # ← Stops the rest of the app from running until button is clicked
+    
+# ==================== MAIN APP STARTS HERE ====================
+sys.path.append(str(Path(__file__).parent))
+from data import TRANSCRIPTS, PROTEIN_DOMAINS, EXONS, EDUCATIONAL_FACTS
 
 sys.path.append(str(Path(__file__).parent))
 from data import TRANSCRIPTS, PROTEIN_DOMAINS, EXONS, EDUCATIONAL_FACTS
