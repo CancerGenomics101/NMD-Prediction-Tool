@@ -1,22 +1,27 @@
 import streamlit as st
+import re
+import pandas as pd
+import matplotlib.pyplot as plt
+import random
 import sys
 from pathlib import Path
 
+# === Page Config + Clean White Landing Page =============================
 st.set_page_config(
     page_title="NMD Predictor v1.0",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# === Clean White + Classy Landing Page =====================================
+# === CSS for Classy White Landing ========================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap');
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
 
     .landing {
-        padding-top: 80px;
-        padding-bottom: 80px;
+        padding-top: 100px;
+        padding-bottom: 100px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -26,9 +31,9 @@ st.markdown("""
     }
 
     .dna-spin {
-        font-size: 7rem;
-        margin-bottom: 20px;
-        animation: spin 10s linear infinite;
+        font-size: 7.2rem;
+        margin-bottom: 30px;
+        animation: spin 12s linear infinite;
         display: inline-block;
     }
 
@@ -39,21 +44,20 @@ st.markdown("""
 
     .app-title {
         font-family: 'Cinzel', serif;
-        font-size: 4.8rem;
+        font-size: 5.0rem;
         font-weight: 900;
-        letter-spacing: 0.18em;
+        letter-spacing: 0.20em;
         text-transform: uppercase;
         color: #111111;
         margin: 0;
-        padding: 0;
     }
 
     .subtitle {
         font-family: 'Inter', sans-serif;
-        font-size: 1.4rem;
+        font-size: 1.45rem;
         color: #444444;
-        margin-top: 10px;
-        margin-bottom: 50px;
+        margin-top: 15px;
+        margin-bottom: 60px;
         letter-spacing: 0.12em;
         font-weight: 300;
     }
@@ -62,10 +66,10 @@ st.markdown("""
         background-color: #111111;
         color: white;
         border: none;
-        padding: 18px 65px;
-        font-size: 1.35rem;
+        padding: 18px 70px;
+        font-size: 1.4rem;
         font-weight: 600;
-        letter-spacing: 0.15em;
+        letter-spacing: 0.18em;
         border-radius: 50px;
         cursor: pointer;
         transition: all 0.3s ease;
@@ -74,11 +78,12 @@ st.markdown("""
 
     .init-button:hover {
         background-color: #333333;
-        transform: translateY(-3px);
+        transform: translateY(-4px);
     }
 </style>
 """, unsafe_allow_html=True)
 
+# Session state for landing page
 if "initialized" not in st.session_state:
     st.session_state.initialized = False
 
@@ -97,7 +102,7 @@ if not st.session_state.initialized:
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    st.stop()
+    st.stop()   # ← This stops the app here until Initialise is clicked
 
 # ==================== APP STARTS HERE ====================
 sys.path.append(str(Path(__file__).parent))
