@@ -106,7 +106,7 @@ def get_svig_o2_suggestion(ptc_c_pos: int, prot_len: int, nmd_cutoff: int,
             caveat = ""
         else:
             # Low loss, no domain impact
-            code = "O2_STR"
+            code = "O2_Supp"
             expl = f"NMD evaded, {percent_lost:.1f}% protein lost"
             caveat = ""
 
